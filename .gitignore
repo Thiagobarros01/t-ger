@@ -1,0 +1,14 @@
+# Postgres data
+storage/postgres-data/
+
+# Maven
+backend-java/target/
+
+# Node
+frontend-vue/node_modules/
+
+# Logs
+*.log
+
+# Env
+.env
