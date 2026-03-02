@@ -64,6 +64,20 @@ export function useSession() {
     return true;
   }
 
+  async function updateUserPermissions(userId, profile, modules) {
+    const normalizedModules = profile === "ADMINISTRADOR" ? [] : [...new Set(modules)];
+    const updated = await apiRequest(`/api/admin/users/${userId}/permissions`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        profile,
+        modules: normalizedModules
+      })
+    });
+    const idx = state.allUsers.findIndex((item) => item.id === userId);
+    if (idx >= 0) state.allUsers[idx] = updated;
+    return updated;
+  }
+
   async function resetUserPassword(userId) {
     await apiRequest(`/api/admin/users/${userId}/reset-password`, { method: "POST" });
     const user = state.allUsers.find((item) => item.id === userId);
@@ -96,6 +110,7 @@ export function useSession() {
     ensureLoaded,
     addUser,
     updateUserEmail,
+    updateUserPermissions,
     resetUserPassword,
     deactivateUser,
     reactivateUser,

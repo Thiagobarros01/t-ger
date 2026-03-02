@@ -4,6 +4,7 @@ import br.com.tger.api.dto.TiAssetDto;
 import br.com.tger.api.dto.TiTermDto;
 import br.com.tger.api.dto.TicketDto;
 import br.com.tger.api.dto.TicketMessageDto;
+import br.com.tger.api.dto.UserDto;
 import br.com.tger.api.dto.ti.TiAssetRequestDto;
 import br.com.tger.api.dto.ti.TiTermRequestDto;
 import br.com.tger.api.dto.ti.TicketMessageRequestDto;
@@ -15,15 +16,19 @@ import br.com.tger.api.persistence.entity.TiTicketMessageEntity;
 import br.com.tger.api.persistence.repository.TiAssetRepository;
 import br.com.tger.api.persistence.repository.TiTermRepository;
 import br.com.tger.api.persistence.repository.TiTicketRepository;
+import br.com.tger.api.service.AccessControlService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class TiPersistenceService {
@@ -33,67 +38,106 @@ public class TiPersistenceService {
     private final TiAssetRepository assetRepository;
     private final TiTicketRepository ticketRepository;
     private final ObjectMapper objectMapper;
+    private final AccessControlService accessControlService;
 
     public TiPersistenceService(
             TiTermRepository termRepository,
             TiAssetRepository assetRepository,
             TiTicketRepository ticketRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AccessControlService accessControlService
     ) {
         this.termRepository = termRepository;
         this.assetRepository = assetRepository;
         this.ticketRepository = ticketRepository;
         this.objectMapper = objectMapper;
+        this.accessControlService = accessControlService;
     }
 
-    public List<TiTermDto> listTerms() {
-        return termRepository.findAll().stream().map(this::toDto).toList();
+    public List<TiTermDto> listTerms(String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        if (!accessControlService.isOperator(user)) {
+            return termRepository.findAll().stream().map(this::toDto).toList();
+        }
+        return termRepository.findAll().stream()
+                .filter(term -> isOwnTerm(term, user))
+                .map(this::toDto)
+                .toList();
     }
 
-    public List<TiAssetDto> listAssets() {
-        return assetRepository.findAll().stream().map(this::toDto).toList();
+    @Transactional(readOnly = true)
+    public List<TiAssetDto> listAssets(String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        if (!accessControlService.isOperator(user)) {
+            return assetRepository.findAll().stream().map(this::toDto).toList();
+        }
+        return assetRepository.findByResponsibleUserId(user.id()).stream().map(this::toDto).toList();
     }
 
-    public List<TicketDto> listTickets() {
-        return ticketRepository.findAll().stream().map(this::toDto).toList();
+    public List<TicketDto> listTickets(String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        if (!accessControlService.isOperator(user)) {
+            return ticketRepository.findAll().stream().map(this::toDto).toList();
+        }
+        return ticketRepository.findAll().stream()
+                .filter(ticket -> isOwnTicket(ticket, user))
+                .map(this::toDto)
+                .toList();
     }
 
-    public TiTermDto createTerm(TiTermRequestDto req) {
+    public TiTermDto createTerm(TiTermRequestDto req, String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
         TiTermEntity e = new TiTermEntity();
-        applyTerm(req, e);
+        applyTerm(req, e, user);
         return toDto(termRepository.save(e));
     }
 
-    public TiTermDto updateTerm(Long id, TiTermRequestDto req) {
+    public TiTermDto updateTerm(Long id, TiTermRequestDto req, String authorizationHeader) {
         TiTermEntity e = termRepository.findById(id).orElseThrow();
-        applyTerm(req, e);
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        assertOperatorOwnsTerm(user, e);
+        applyTerm(req, e, user);
         return toDto(termRepository.save(e));
     }
 
-    public void deleteTerm(Long id) {
+    public void deleteTerm(Long id, String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        if (accessControlService.isOperator(user)) {
+            TiTermEntity term = termRepository.findById(id).orElseThrow();
+            assertOperatorOwnsTerm(user, term);
+        }
         termRepository.deleteById(id);
     }
 
     @Transactional
-    public TiAssetDto createAsset(TiAssetRequestDto req) {
+    public TiAssetDto createAsset(TiAssetRequestDto req, String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
         TiAssetEntity e = new TiAssetEntity();
         e.setInternalCode(nextAssetCode());
-        applyAsset(req, e);
+        applyAsset(req, e, user);
         return toDto(assetRepository.save(e));
     }
 
     @Transactional
-    public TiAssetDto updateAsset(Long id, TiAssetRequestDto req) {
+    public TiAssetDto updateAsset(Long id, TiAssetRequestDto req, String authorizationHeader) {
         TiAssetEntity e = assetRepository.findById(id).orElseThrow();
-        applyAsset(req, e);
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        assertOperatorOwnsAsset(user, e);
+        applyAsset(req, e, user);
         return toDto(assetRepository.save(e));
     }
 
-    public void deleteAsset(Long id) {
+    public void deleteAsset(Long id, String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        if (accessControlService.isOperator(user)) {
+            TiAssetEntity asset = assetRepository.findById(id).orElseThrow();
+            assertOperatorOwnsAsset(user, asset);
+        }
         assetRepository.deleteById(id);
     }
 
-    private void applyAsset(TiAssetRequestDto req, TiAssetEntity e) {
+    private void applyAsset(TiAssetRequestDto req, TiAssetEntity e, UserDto user) {
+        boolean operator = accessControlService.isOperator(user);
         e.setCompany(trim(req.company()));
         e.setCompanyErpCode(trim(req.companyErpCode()));
         e.setAssetType(req.assetType());
@@ -104,8 +148,8 @@ public class TiPersistenceService {
         e.setPatrimony(trim(req.patrimony()));
         e.setDetailedDescription(trim(req.detailedDescription()));
         e.setStatus(req.status());
-        e.setResponsibleUserId(req.responsibleUserId());
-        e.setResponsibleUserName(trim(req.responsibleUserName()));
+        e.setResponsibleUserId(operator ? user.id() : req.responsibleUserId());
+        e.setResponsibleUserName(operator ? user.name() : trim(req.responsibleUserName()));
         e.setLinkedTermId(req.linkedTermId());
         e.setLinkedTermTitle(trim(req.linkedTermTitle()));
         e.setTransferHistoryText(String.join("\n", req.transferHistory() == null ? List.of() : req.transferHistory().stream().map(String::trim).filter(s -> !s.isBlank()).toList()));
@@ -115,21 +159,24 @@ public class TiPersistenceService {
         e.setExtraFieldsJson(writeJson(req.extraFields() == null ? Map.of() : req.extraFields()));
     }
 
-    private void applyTerm(TiTermRequestDto req, TiTermEntity e) {
+    private void applyTerm(TiTermRequestDto req, TiTermEntity e, UserDto user) {
+        boolean operator = accessControlService.isOperator(user);
         e.setType(req.type());
         e.setDefaultTermName("Termo de Responsabilidade");
-        e.setLinkedUserName(req.linkedUserName().trim());
+        e.setLinkedUserName(operator ? user.name() : req.linkedUserName().trim());
         e.setStartDate(req.startDate() == null || req.startDate().isBlank() ? LocalDate.now().toString() : req.startDate());
         e.setStatus(req.status().trim());
         e.setDocumentPath(trim(req.documentPath()));
     }
 
     @Transactional
-    public TicketDto addTicketMessage(Long ticketId, TicketMessageRequestDto req) {
+    public TicketDto addTicketMessage(Long ticketId, TicketMessageRequestDto req, String authorizationHeader) {
         TiTicketEntity ticket = ticketRepository.findById(ticketId).orElseThrow();
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        assertOperatorOwnsTicket(user, ticket);
         TiTicketMessageEntity msg = new TiTicketMessageEntity();
         msg.setTicket(ticket);
-        msg.setAuthor(req.author().trim());
+        msg.setAuthor(accessControlService.isOperator(user) ? user.name() : req.author().trim());
         msg.setSentAt(req.sentAt() == null || req.sentAt().isBlank() ? java.time.LocalDateTime.now().toString() : req.sentAt());
         msg.setMessage(req.message().trim());
         ticket.getMessages().add(msg);
@@ -137,10 +184,47 @@ public class TiPersistenceService {
     }
 
     @Transactional
-    public TicketDto updateTicketStatus(Long ticketId, String status) {
+    public TicketDto updateTicketStatus(Long ticketId, String status, String authorizationHeader) {
         TiTicketEntity ticket = ticketRepository.findById(ticketId).orElseThrow();
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        assertOperatorOwnsTicket(user, ticket);
         ticket.setStatus(status == null || status.isBlank() ? ticket.getStatus() : status.trim());
         return toDto(ticketRepository.save(ticket));
+    }
+
+    private void assertOperatorOwnsAsset(UserDto user, TiAssetEntity asset) {
+        if (accessControlService.isOperator(user) && !Objects.equals(asset.getResponsibleUserId(), user.id())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Operador sem acesso a esse ativo");
+        }
+    }
+
+    private void assertOperatorOwnsTerm(UserDto user, TiTermEntity term) {
+        if (accessControlService.isOperator(user) && !isOwnTerm(term, user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Operador sem acesso a esse termo");
+        }
+    }
+
+    private void assertOperatorOwnsTicket(UserDto user, TiTicketEntity ticket) {
+        if (accessControlService.isOperator(user) && !isOwnTicket(ticket, user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Operador sem acesso a esse chamado");
+        }
+    }
+
+    private boolean isOwnTerm(TiTermEntity term, UserDto user) {
+        if (user == null) return false;
+        return equalsIgnoreCase(term.getLinkedUserName(), user.name()) || equalsIgnoreCase(term.getLinkedUserName(), user.email());
+    }
+
+    private boolean isOwnTicket(TiTicketEntity ticket, UserDto user) {
+        if (user == null) return false;
+        return equalsIgnoreCase(ticket.getRequester(), user.name())
+                || equalsIgnoreCase(ticket.getRequester(), user.email())
+                || equalsIgnoreCase(ticket.getAssignedTo(), user.name())
+                || equalsIgnoreCase(ticket.getAssignedTo(), user.email());
+    }
+
+    private boolean equalsIgnoreCase(String left, String right) {
+        return left != null && right != null && left.equalsIgnoreCase(right);
     }
 
     private String nextAssetCode() {

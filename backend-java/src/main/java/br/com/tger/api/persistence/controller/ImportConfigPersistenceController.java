@@ -13,12 +13,19 @@ public class ImportConfigPersistenceController {
     public ImportConfigPersistenceController(ImportConfigPersistenceService service) { this.service = service; }
 
     @GetMapping("/{entity}")
-    public List<ImportFieldConfigDto> get(@PathVariable String entity) {
-        return service.getByEntity(entity);
+    public List<ImportFieldConfigDto> get(
+            @PathVariable String entity,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.getByEntity(entity, authorizationHeader);
     }
 
     @PutMapping("/{entity}")
-    public List<ImportFieldConfigDto> save(@PathVariable String entity, @RequestBody List<ImportFieldConfigDto> body) {
-        return service.saveAll(entity, body);
+    public List<ImportFieldConfigDto> save(
+            @PathVariable String entity,
+            @RequestBody List<ImportFieldConfigDto> body,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.saveAll(entity, body, authorizationHeader);
     }
 }

@@ -61,9 +61,33 @@
             Editar e-mail
             <input v-model="editEmailValue" type="email" :disabled="!selectedUser.active" />
           </label>
+          <label>
+            Perfil
+            <select v-model="editPermissions.profile" :disabled="!selectedUser.active">
+              <option value="ADMINISTRADOR">Administrador</option>
+              <option value="GESTOR">Gestor</option>
+              <option value="OPERADOR">Operador</option>
+            </select>
+          </label>
+          <label>
+            Módulos permitidos
+            <select
+              multiple
+              v-model="editPermissions.modules"
+              :disabled="!selectedUser.active || editPermissions.profile === 'ADMINISTRADOR'"
+              style="min-height: 110px"
+            >
+              <option v-for="module in assignableModules" :key="module.code" :value="module.code">
+                {{ module.label }}
+              </option>
+            </select>
+          </label>
           <div class="actions-row" style="align-self: end">
             <button type="button" class="btn-primary" :disabled="!selectedUser.active" @click="saveUserEmail">
               Salvar e-mail
+            </button>
+            <button type="button" class="btn-primary" :disabled="!selectedUser.active" @click="saveUserPermissions">
+              Salvar permissões
             </button>
             <button type="button" :disabled="!selectedUser.active" @click="resetPasswordForSelected">
               Redefinir senha
@@ -136,7 +160,7 @@ import { modules } from "../../data/mock";
 import { useSession } from "../../composables/useSession";
 import { usePagination } from "../../composables/usePagination";
 
-const { state, ensureLoaded, addUser, updateUserEmail, resetUserPassword, deactivateUser, reactivateUser } = useSession();
+const { state, ensureLoaded, addUser, updateUserEmail, updateUserPermissions, resetUserPassword, deactivateUser, reactivateUser } = useSession();
 const usersList = computed(() => state.allUsers);
 const usersPagination = usePagination(usersList, 10);
 const paginatedUsers = usersPagination.paginatedItems;
@@ -152,6 +176,10 @@ const form = reactive({
 });
 const selectedUserId = ref(null);
 const editEmailValue = ref("");
+const editPermissions = reactive({
+  profile: "OPERADOR",
+  modules: []
+});
 const actionMessage = ref("");
 
 const selectedUser = computed(() => state.allUsers.find((user) => user.id === selectedUserId.value) ?? null);
@@ -194,14 +222,34 @@ async function submitUser() {
 function selectUser(user) {
   selectedUserId.value = user.id;
   editEmailValue.value = user.email;
+  editPermissions.profile = user.profile;
+  editPermissions.modules = [...(user.modules ?? [])];
   actionMessage.value = "";
 }
+
+watch(
+  () => editPermissions.profile,
+  (value) => {
+    if (value === "ADMINISTRADOR") {
+      editPermissions.modules = [];
+    }
+    if (value !== "ADMINISTRADOR" && editPermissions.modules.length === 0) {
+      editPermissions.modules = ["TI"];
+    }
+  }
+);
 
 async function saveUserEmail() {
   if (!selectedUser.value) return;
   if (!editEmailValue.value.trim()) return;
   await updateUserEmail(selectedUser.value.id, editEmailValue.value);
   actionMessage.value = "E-mail atualizado com sucesso.";
+}
+
+async function saveUserPermissions() {
+  if (!selectedUser.value) return;
+  await updateUserPermissions(selectedUser.value.id, editPermissions.profile, editPermissions.modules);
+  actionMessage.value = "Permissões atualizadas com sucesso.";
 }
 
 async function resetPasswordForSelected() {

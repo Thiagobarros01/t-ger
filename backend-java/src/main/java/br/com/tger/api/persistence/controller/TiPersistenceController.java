@@ -23,35 +23,75 @@ public class TiPersistenceController {
     }
 
     @GetMapping("/assets")
-    public List<TiAssetDto> assets() { return service.listAssets(); }
+    public List<TiAssetDto> assets(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return service.listAssets(authorizationHeader);
+    }
 
     @PostMapping("/assets")
-    public TiAssetDto createAsset(@Valid @RequestBody TiAssetRequestDto req) { return service.createAsset(req); }
+    public TiAssetDto createAsset(
+            @Valid @RequestBody TiAssetRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.createAsset(req, authorizationHeader);
+    }
     @PutMapping("/assets/{id}")
-    public TiAssetDto updateAsset(@PathVariable Long id, @Valid @RequestBody TiAssetRequestDto req) { return service.updateAsset(id, req); }
+    public TiAssetDto updateAsset(
+            @PathVariable Long id,
+            @Valid @RequestBody TiAssetRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.updateAsset(id, req, authorizationHeader);
+    }
     @DeleteMapping("/assets/{id}")
-    public void deleteAsset(@PathVariable Long id) { service.deleteAsset(id); }
+    public void deleteAsset(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        service.deleteAsset(id, authorizationHeader);
+    }
 
     @GetMapping("/terms-contracts")
-    public List<TiTermDto> terms() { return service.listTerms(); }
+    public List<TiTermDto> terms(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return service.listTerms(authorizationHeader);
+    }
 
     @PostMapping("/terms-contracts")
-    public TiTermDto createTerm(@Valid @RequestBody TiTermRequestDto req) { return service.createTerm(req); }
+    public TiTermDto createTerm(
+            @Valid @RequestBody TiTermRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.createTerm(req, authorizationHeader);
+    }
     @PutMapping("/terms-contracts/{id}")
-    public TiTermDto updateTerm(@PathVariable Long id, @Valid @RequestBody TiTermRequestDto req) { return service.updateTerm(id, req); }
+    public TiTermDto updateTerm(
+            @PathVariable Long id,
+            @Valid @RequestBody TiTermRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.updateTerm(id, req, authorizationHeader);
+    }
     @DeleteMapping("/terms-contracts/{id}")
-    public void deleteTerm(@PathVariable Long id) { service.deleteTerm(id); }
+    public void deleteTerm(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        service.deleteTerm(id, authorizationHeader);
+    }
 
     @GetMapping("/tickets")
-    public List<TicketDto> tickets() { return service.listTickets(); }
+    public List<TicketDto> tickets(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return service.listTickets(authorizationHeader);
+    }
 
     @PostMapping("/tickets/{ticketId}/messages")
-    public TicketDto addMessage(@PathVariable Long ticketId, @Valid @RequestBody TicketMessageRequestDto req) {
-        return service.addTicketMessage(ticketId, req);
+    public TicketDto addMessage(
+            @PathVariable Long ticketId,
+            @Valid @RequestBody TicketMessageRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.addTicketMessage(ticketId, req, authorizationHeader);
     }
 
     @PatchMapping("/tickets/{ticketId}/status")
-    public TicketDto updateStatus(@PathVariable Long ticketId, @Valid @RequestBody TicketStatusUpdateRequestDto req) {
-        return service.updateTicketStatus(ticketId, req.status());
+    public TicketDto updateStatus(
+            @PathVariable Long ticketId,
+            @Valid @RequestBody TicketStatusUpdateRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.updateTicketStatus(ticketId, req.status(), authorizationHeader);
     }
 }

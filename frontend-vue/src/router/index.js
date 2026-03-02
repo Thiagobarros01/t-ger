@@ -12,6 +12,9 @@ import TiTicketsView from "../views/ti/TiTicketsView.vue";
 import ProductsView from "../views/commercial/ProductsView.vue";
 import CustomersView from "../views/commercial/CustomersView.vue";
 import SellersView from "../views/commercial/SellersView.vue";
+import CrmKanbanView from "../views/commercial/CrmKanbanView.vue";
+import CrmInteractionsView from "../views/commercial/CrmInteractionsView.vue";
+import CrmTasksView from "../views/commercial/CrmTasksView.vue";
 import { useSession } from "../composables/useSession";
 
 const routes = [
@@ -27,6 +30,9 @@ const routes = [
       { path: "gestao/comercial/produtos", name: "comercial-produtos", component: ProductsView, meta: { moduleCode: "COMERCIAL" } },
       { path: "gestao/comercial/clientes", name: "comercial-clientes", component: CustomersView, meta: { moduleCode: "COMERCIAL" } },
       { path: "gestao/comercial/vendedores", name: "comercial-vendedores", component: SellersView, meta: { moduleCode: "COMERCIAL" } },
+      { path: "gestao/comercial/crm/kanban", name: "comercial-crm-kanban", component: CrmKanbanView, meta: { moduleCode: "COMERCIAL" } },
+      { path: "gestao/comercial/crm/interacoes", name: "comercial-crm-interacoes", component: CrmInteractionsView, meta: { moduleCode: "COMERCIAL" } },
+      { path: "gestao/comercial/crm/tarefas", name: "comercial-crm-tarefas", component: CrmTasksView, meta: { moduleCode: "COMERCIAL" } },
       { path: "gestao/logistica", name: "logistica", component: ModulePlaceholderView, props: { moduleLabel: "Gestao da Logistica" }, meta: { moduleCode: "LOGISTICA" } },
       { path: "gestao/compras", name: "compras", component: ModulePlaceholderView, props: { moduleLabel: "Gestao de Compras" }, meta: { moduleCode: "COMPRAS" } },
       { path: "gestao/vendedor", name: "vendedor", component: ModulePlaceholderView, props: { moduleLabel: "Gestao do Vendedor" }, meta: { moduleCode: "VENDEDOR" } },

@@ -1,8 +1,10 @@
 package br.com.tger.api.persistence.service;
 
 import br.com.tger.api.dto.imports.ImportFieldConfigDto;
+import br.com.tger.api.dto.UserDto;
 import br.com.tger.api.persistence.entity.ImportFieldConfigEntity;
 import br.com.tger.api.persistence.repository.ImportFieldConfigRepository;
+import br.com.tger.api.service.AccessControlService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +14,11 @@ import java.util.Map;
 @Service
 public class ImportConfigPersistenceService {
     private final ImportFieldConfigRepository repository;
-    public ImportConfigPersistenceService(ImportFieldConfigRepository repository) { this.repository = repository; }
+    private final AccessControlService accessControlService;
+    public ImportConfigPersistenceService(ImportFieldConfigRepository repository, AccessControlService accessControlService) {
+        this.repository = repository;
+        this.accessControlService = accessControlService;
+    }
 
     private static final Map<String, List<ImportFieldConfigDto>> DEFAULTS = Map.of(
             "clientes", List.of(
@@ -35,7 +41,9 @@ public class ImportConfigPersistenceService {
     );
 
     @Transactional
-    public List<ImportFieldConfigDto> getByEntity(String entity) {
+    public List<ImportFieldConfigDto> getByEntity(String entity, String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        if (accessControlService.isOperator(user)) return List.of();
         var rows = repository.findByEntityNameOrderByIdAsc(entity);
         if (rows.isEmpty()) {
             seedDefaults(entity);
@@ -45,7 +53,8 @@ public class ImportConfigPersistenceService {
     }
 
     @Transactional
-    public List<ImportFieldConfigDto> saveAll(String entity, List<ImportFieldConfigDto> configs) {
+    public List<ImportFieldConfigDto> saveAll(String entity, List<ImportFieldConfigDto> configs, String authorizationHeader) {
+        accessControlService.assertNotOperator(accessControlService.requireUser(authorizationHeader));
         for (ImportFieldConfigDto dto : configs) {
             ImportFieldConfigEntity row = repository.findByEntityNameAndFieldKey(entity, dto.key()).orElseGet(ImportFieldConfigEntity::new);
             row.setEntityName(entity);
@@ -55,7 +64,7 @@ public class ImportConfigPersistenceService {
             row.setRequiredFlag(dto.required());
             repository.save(row);
         }
-        return getByEntity(entity);
+        return getByEntity(entity, authorizationHeader);
     }
 
     private void seedDefaults(String entity) {

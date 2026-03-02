@@ -13,20 +13,89 @@ public class CommercialPersistenceController {
     private final CommercialPersistenceService service;
     public CommercialPersistenceController(CommercialPersistenceService service) { this.service = service; }
 
-    @GetMapping("/sellers") public List<SellerResponseDto> sellers() { return service.listSellers(); }
-    @PostMapping("/sellers") public SellerResponseDto createSeller(@Valid @RequestBody SellerRequestDto req) { return service.createSeller(req); }
-    @PutMapping("/sellers/{id}") public SellerResponseDto updateSeller(@PathVariable Long id, @Valid @RequestBody SellerRequestDto req) { return service.updateSeller(id, req); }
-    @DeleteMapping("/sellers/{id}") public void deleteSeller(@PathVariable Long id) { service.deleteSeller(id); }
+    @GetMapping("/sellers")
+    public List<SellerResponseDto> sellers(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return service.listSellers(authorizationHeader);
+    }
+    @PostMapping("/sellers")
+    public SellerResponseDto createSeller(
+            @Valid @RequestBody SellerRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.createSeller(req, authorizationHeader);
+    }
+    @PutMapping("/sellers/{id}")
+    public SellerResponseDto updateSeller(
+            @PathVariable Long id,
+            @Valid @RequestBody SellerRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.updateSeller(id, req, authorizationHeader);
+    }
+    @DeleteMapping("/sellers/{id}")
+    public void deleteSeller(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        service.deleteSeller(id, authorizationHeader);
+    }
 
-    @GetMapping("/products") public List<ProductResponseDto> products() { return service.listProducts(); }
-    @PostMapping("/products") public ProductResponseDto createProduct(@Valid @RequestBody ProductRequestDto req) { return service.createProduct(req); }
-    @PutMapping("/products/{id}") public ProductResponseDto updateProduct(@PathVariable Long id, @Valid @RequestBody ProductRequestDto req) { return service.updateProduct(id, req); }
-    @DeleteMapping("/products/{id}") public void deleteProduct(@PathVariable Long id) { service.deleteProduct(id); }
-    @PostMapping("/products/bulk-upsert") public BulkUpsertResultDto bulkProducts(@RequestBody List<ProductRequestDto> rows) { return service.bulkUpsertProducts(rows); }
+    @GetMapping("/products")
+    public List<ProductResponseDto> products(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return service.listProducts(authorizationHeader);
+    }
+    @PostMapping("/products")
+    public ProductResponseDto createProduct(
+            @Valid @RequestBody ProductRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.createProduct(req, authorizationHeader);
+    }
+    @PutMapping("/products/{id}")
+    public ProductResponseDto updateProduct(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.updateProduct(id, req, authorizationHeader);
+    }
+    @DeleteMapping("/products/{id}")
+    public void deleteProduct(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        service.deleteProduct(id, authorizationHeader);
+    }
+    @PostMapping("/products/bulk-upsert")
+    public BulkUpsertResultDto bulkProducts(
+            @RequestBody List<ProductRequestDto> rows,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.bulkUpsertProducts(rows, authorizationHeader);
+    }
 
-    @GetMapping("/customers") public List<CustomerResponseDto> customers() { return service.listCustomers(); }
-    @PostMapping("/customers") public CustomerResponseDto createCustomer(@Valid @RequestBody CustomerRequestDto req) { return service.createCustomer(req); }
-    @PutMapping("/customers/{id}") public CustomerResponseDto updateCustomer(@PathVariable Long id, @Valid @RequestBody CustomerRequestDto req) { return service.updateCustomer(id, req); }
-    @DeleteMapping("/customers/{id}") public void deleteCustomer(@PathVariable Long id) { service.deleteCustomer(id); }
-    @PostMapping("/customers/bulk-upsert") public BulkUpsertResultDto bulkCustomers(@RequestBody List<CustomerRequestDto> rows) { return service.bulkUpsertCustomers(rows); }
+    @GetMapping("/customers")
+    public List<CustomerResponseDto> customers(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return service.listCustomers(authorizationHeader);
+    }
+    @PostMapping("/customers")
+    public CustomerResponseDto createCustomer(
+            @Valid @RequestBody CustomerRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.createCustomer(req, authorizationHeader);
+    }
+    @PutMapping("/customers/{id}")
+    public CustomerResponseDto updateCustomer(
+            @PathVariable Long id,
+            @Valid @RequestBody CustomerRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.updateCustomer(id, req, authorizationHeader);
+    }
+    @DeleteMapping("/customers/{id}")
+    public void deleteCustomer(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        service.deleteCustomer(id, authorizationHeader);
+    }
+    @PostMapping("/customers/bulk-upsert")
+    public BulkUpsertResultDto bulkCustomers(
+            @RequestBody List<CustomerRequestDto> rows,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.bulkUpsertCustomers(rows, authorizationHeader);
+    }
 }

@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface CompanyRepository extends JpaRepository<CompanyEntity, Long> {
     Optional<CompanyEntity> findTopByOrderByIdDesc();
+    Optional<CompanyEntity> findByErpCodeIgnoreCase(String erpCode);
 }

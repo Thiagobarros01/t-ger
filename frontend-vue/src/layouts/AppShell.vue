@@ -38,9 +38,28 @@
             <span class="nav-caret"></span>
           </summary>
           <div class="submodule-list">
-            <RouterLink to="/gestao/comercial/produtos" class="nav-submodule-link"><span class="submodule-dot"></span>Cadastro de Produto</RouterLink>
-            <RouterLink to="/gestao/comercial/clientes" class="nav-submodule-link"><span class="submodule-dot"></span>Cadastro de Cliente</RouterLink>
-            <RouterLink to="/gestao/comercial/vendedores" class="nav-submodule-link"><span class="submodule-dot"></span>Cadastro de Vendedor</RouterLink>
+            <details open>
+              <summary class="nav-module-summary" style="margin-left: 6px; font-weight: 500;">
+                <span>Cadastros</span>
+                <span class="nav-caret"></span>
+              </summary>
+              <div class="submodule-list" style="padding-left: 16px;">
+                <RouterLink to="/gestao/comercial/produtos" class="nav-submodule-link"><span class="submodule-dot"></span>Cadastro de Produto</RouterLink>
+                <RouterLink to="/gestao/comercial/clientes" class="nav-submodule-link"><span class="submodule-dot"></span>Cadastro de Cliente</RouterLink>
+                <RouterLink to="/gestao/comercial/vendedores" class="nav-submodule-link"><span class="submodule-dot"></span>Cadastro de Vendedor</RouterLink>
+              </div>
+            </details>
+            <details open>
+              <summary class="nav-module-summary" style="margin-left: 6px; font-weight: 500;">
+                <span>CRM</span>
+                <span class="nav-caret"></span>
+              </summary>
+              <div class="submodule-list" style="padding-left: 16px;">
+                <RouterLink to="/gestao/comercial/crm/kanban" class="nav-submodule-link"><span class="submodule-dot"></span>Kanban</RouterLink>
+                <RouterLink to="/gestao/comercial/crm/interacoes" class="nav-submodule-link"><span class="submodule-dot"></span>Interações</RouterLink>
+                <RouterLink to="/gestao/comercial/crm/tarefas" class="nav-submodule-link"><span class="submodule-dot"></span>Tarefas</RouterLink>
+              </div>
+            </details>
           </div>
         </details>
         <RouterLink v-if="hasModule('LOGISTICA')" to="/gestao/logistica" class="nav-module-link">Logistica</RouterLink>

@@ -7,5 +7,6 @@ import java.util.Optional;
 
 public interface SellerRepository extends JpaRepository<SellerEntity, Long> {
     Optional<SellerEntity> findByErpCodeIgnoreCase(String erpCode);
+    Optional<SellerEntity> findByEmailIgnoreCase(String email);
     Optional<SellerEntity> findTopByOrderByIdDesc();
 }

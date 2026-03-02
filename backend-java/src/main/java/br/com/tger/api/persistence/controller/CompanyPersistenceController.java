@@ -13,8 +13,27 @@ import java.util.List;
 public class CompanyPersistenceController {
     private final CompanyPersistenceService service;
     public CompanyPersistenceController(CompanyPersistenceService service) { this.service = service; }
-    @GetMapping public List<CompanyResponseDto> list() { return service.list(); }
-    @PostMapping public CompanyResponseDto create(@Valid @RequestBody CodeNameRequestDto req) { return service.create(req); }
-    @PutMapping("/{id}") public CompanyResponseDto update(@PathVariable Long id, @Valid @RequestBody CodeNameRequestDto req) { return service.update(id, req); }
-    @DeleteMapping("/{id}") public void delete(@PathVariable Long id) { service.deactivateDelete(id); }
+    @GetMapping
+    public List<CompanyResponseDto> list(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return service.list(authorizationHeader);
+    }
+    @PostMapping
+    public CompanyResponseDto create(
+            @Valid @RequestBody CodeNameRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.create(req, authorizationHeader);
+    }
+    @PutMapping("/{id}")
+    public CompanyResponseDto update(
+            @PathVariable Long id,
+            @Valid @RequestBody CodeNameRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.update(id, req, authorizationHeader);
+    }
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        service.deactivateDelete(id, authorizationHeader);
+    }
 }
