@@ -71,6 +71,9 @@ public class TiAssetEntity {
     @Column(name = "extra_fields_json")
     private String extraFieldsJson;
 
+    @Column(nullable = false)
+    private boolean active = true;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getInternalCode() { return internalCode; }
@@ -113,4 +116,6 @@ public class TiAssetEntity {
     public void setImei(String imei) { this.imei = imei; }
     public String getExtraFieldsJson() { return extraFieldsJson; }
     public void setExtraFieldsJson(String extraFieldsJson) { this.extraFieldsJson = extraFieldsJson; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
 }

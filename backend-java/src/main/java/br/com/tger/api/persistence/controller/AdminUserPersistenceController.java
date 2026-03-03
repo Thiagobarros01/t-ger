@@ -4,6 +4,7 @@ import br.com.tger.api.dto.admin.AdminUserCreateRequestDto;
 import br.com.tger.api.dto.admin.AdminUserResponseDto;
 import br.com.tger.api.dto.admin.UpdateUserPermissionsRequestDto;
 import br.com.tger.api.dto.admin.UpdateUserEmailRequestDto;
+import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.persistence.service.AdminUserPersistenceService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,18 @@ public class AdminUserPersistenceController {
     @GetMapping
     public List<AdminUserResponseDto> list(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         return service.list(authorizationHeader);
+    }
+    @GetMapping("/paged")
+    public PagedResponseDto<AdminUserResponseDto> search(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String profile,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize
+    ) {
+        return service.search(authorizationHeader, name, email, profile, active, page, pageSize);
     }
     @PostMapping
     public AdminUserResponseDto create(

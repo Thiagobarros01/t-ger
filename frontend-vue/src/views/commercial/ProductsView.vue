@@ -48,11 +48,33 @@
       <div class="section-head">
         <div>
           <h3>Produtos</h3>
-          <p>Lista local em memoria para validar cadastro e UX.</p>
+          <p>Filtro e paginação no servidor para manter performance em base grande.</p>
         </div>
-        <span class="tag">{{ state.products.length }} item(ns)</span>
+        <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
-      <div v-if="state.products.length === 0" class="empty-state">Nenhum produto cadastrado.</div>
+
+      <div class="filters-toolbar">
+        <div class="filters-grid">
+          <label>
+            Buscar por descricao
+            <input v-model="filters.description" placeholder="Ex.: notebook dell" />
+          </label>
+          <label>
+            Filtrar por linha
+            <input v-model="filters.line" placeholder="Ex.: notebooks" />
+          </label>
+          <label>
+            Filtrar por codigo ERP
+            <input v-model="filters.erpCode" placeholder="Ex.: PRD-ERP-001" />
+          </label>
+        </div>
+        <div class="filters-actions">
+          <button type="button" class="btn-soft" @click="clearFilters">Limpar filtros</button>
+        </div>
+      </div>
+      <div v-if="loading" class="empty-state">Carregando produtos...</div>
+      <div v-else-if="loadError" class="empty-state">{{ loadError }}</div>
+      <div v-else-if="rows.length === 0" class="empty-state">Nenhum produto encontrado com os filtros atuais.</div>
       <div v-else class="table-scroll">
         <table>
           <thead>
@@ -68,7 +90,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="product in paginatedProducts" :key="product.id">
+            <tr v-for="product in rows" :key="product.id">
               <td>{{ product.code }}</td>
               <td>{{ product.erpCode || "-" }}</td>
               <td>{{ product.description }}</td>
@@ -87,12 +109,12 @@
         </table>
       </div>
       <PaginationBar
-        :page="productsPagination.page"
-        :page-size="productsPagination.pageSize"
-        :total-pages="productsPagination.totalPages"
-        :total-items="productsPagination.totalItems"
-        @update:page="productsPagination.setPage"
-        @update:pageSize="productsPagination.setPageSize"
+        :page="page"
+        :page-size="pageSize"
+        :total-pages="Math.max(totalPages, 1)"
+        :total-items="totalItems"
+        @update:page="setPage"
+        @update:pageSize="setPageSize"
       />
     </div>
 
@@ -150,18 +172,29 @@
 </template>
 
 <script setup>
-import { computed, reactive, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import PaginationBar from "../../components/PaginationBar.vue";
 import { useCommercialData } from "../../composables/useCommercialData";
-import { usePagination } from "../../composables/usePagination";
+import { apiRequest } from "../../services/api";
 
-const { state, ensureLoaded, addProduct, updateProduct, removeProduct } = useCommercialData();
-const productsList = computed(() => state.products);
-const productsPagination = usePagination(productsList, 10);
-const paginatedProducts = productsPagination.paginatedItems;
+const { addProduct, updateProduct, removeProduct } = useCommercialData();
+const filters = reactive({
+  description: "",
+  line: "",
+  erpCode: ""
+});
+
+const rows = ref([]);
+const totalItems = ref(0);
+const totalPages = ref(1);
+const page = ref(1);
+const pageSize = ref(10);
+const loading = ref(false);
+const loadError = ref("");
 const editingProduct = ref(null);
 const productToRemove = ref(null);
+let filtersDebounce = null;
 const editProductForm = reactive({
   erpCode: "",
   description: "",
@@ -181,8 +214,30 @@ const form = reactive({
 });
 
 onMounted(() => {
-  ensureLoaded();
+  loadProducts();
 });
+
+onBeforeUnmount(() => {
+  if (filtersDebounce) clearTimeout(filtersDebounce);
+});
+
+watch([page, pageSize], () => {
+  loadProducts();
+});
+
+watch(
+  () => [filters.description, filters.line, filters.erpCode],
+  () => {
+    if (page.value !== 1) {
+      page.value = 1;
+      return;
+    }
+    if (filtersDebounce) clearTimeout(filtersDebounce);
+    filtersDebounce = setTimeout(() => {
+      loadProducts();
+    }, 300);
+  }
+);
 
 async function saveProduct() {
   if (!form.description.trim()) return;
@@ -200,6 +255,7 @@ async function saveProduct() {
   form.category = "";
   form.line = "";
   form.manufacturer = "";
+  await loadProducts();
 }
 
 function editProduct(product) {
@@ -221,17 +277,65 @@ function deleteProductRow(product) {
 async function submitProductEdit() {
   if (!editingProduct.value || !editProductForm.description.trim()) return;
   await updateProduct(editingProduct.value.id, { ...editProductForm });
+  await loadProducts();
   closeProductActions();
 }
 
 async function confirmProductRemoval() {
   if (!productToRemove.value) return;
   await removeProduct(productToRemove.value.id);
+  await loadProducts();
   closeProductActions();
 }
 
 function closeProductActions() {
   editingProduct.value = null;
   productToRemove.value = null;
+}
+
+function clearFilters() {
+  filters.description = "";
+  filters.line = "";
+  filters.erpCode = "";
+  if (page.value !== 1) {
+    page.value = 1;
+  } else {
+    loadProducts();
+  }
+}
+
+function setPage(nextPage) {
+  page.value = nextPage;
+}
+
+function setPageSize(nextSize) {
+  pageSize.value = Number(nextSize) || 10;
+  page.value = 1;
+}
+
+async function loadProducts() {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    const params = new URLSearchParams({
+      page: String(page.value),
+      pageSize: String(pageSize.value)
+    });
+    if (filters.description.trim()) params.set("description", filters.description.trim());
+    if (filters.line.trim()) params.set("line", filters.line.trim());
+    if (filters.erpCode.trim()) params.set("erpCode", filters.erpCode.trim());
+
+    const response = await apiRequest(`/api/commercial/products/paged?${params.toString()}`);
+    rows.value = response.items ?? [];
+    totalItems.value = response.totalItems ?? 0;
+    totalPages.value = Math.max(response.totalPages ?? 1, 1);
+  } catch {
+    rows.value = [];
+    totalItems.value = 0;
+    totalPages.value = 1;
+    loadError.value = "Nao foi possivel carregar os produtos.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>

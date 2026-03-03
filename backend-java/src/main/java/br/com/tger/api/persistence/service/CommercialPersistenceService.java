@@ -2,6 +2,7 @@ package br.com.tger.api.persistence.service;
 
 import br.com.tger.api.dto.commercial.*;
 import br.com.tger.api.dto.UserDto;
+import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.persistence.entity.CustomerEntity;
 import br.com.tger.api.persistence.entity.ProductEntity;
 import br.com.tger.api.persistence.entity.SellerEntity;
@@ -9,11 +10,18 @@ import br.com.tger.api.persistence.repository.CustomerRepository;
 import br.com.tger.api.persistence.repository.ProductRepository;
 import br.com.tger.api.persistence.repository.SellerRepository;
 import br.com.tger.api.service.AccessControlService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -48,6 +56,52 @@ public class CommercialPersistenceService {
         return productRepository.findAll().stream().map(this::toDto).toList();
     }
 
+    public PagedResponseDto<ProductResponseDto> searchProducts(
+            String authorizationHeader,
+            String description,
+            String line,
+            String erpCode,
+            Integer page,
+            Integer pageSize
+    ) {
+        accessControlService.requireUser(authorizationHeader);
+        int safePageSize = normalizePageSize(pageSize);
+        int safePage = Math.max(1, page == null ? 1 : page);
+
+        Pageable pageable = PageRequest.of(
+                safePage - 1,
+                safePageSize,
+                Sort.by(Sort.Direction.DESC, "id")
+        );
+
+        Specification<ProductEntity> filters = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            String byDescription = trim(description);
+            String byLine = trim(line);
+            String byErp = trim(erpCode);
+
+            if (byDescription != null) {
+                predicates.add(cb.like(cb.lower(root.get("description")), "%" + byDescription.toLowerCase() + "%"));
+            }
+            if (byLine != null) {
+                predicates.add(cb.like(cb.lower(root.get("line")), "%" + byLine.toLowerCase() + "%"));
+            }
+            if (byErp != null) {
+                predicates.add(cb.like(cb.lower(root.get("erpCode")), "%" + byErp.toLowerCase() + "%"));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<ProductEntity> result = productRepository.findAll(filters, pageable);
+        return new PagedResponseDto<>(
+                result.getContent().stream().map(this::toDto).toList(),
+                safePage,
+                safePageSize,
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
+    }
+
     public List<CustomerResponseDto> listCustomers(String authorizationHeader) {
         UserDto user = accessControlService.requireUser(authorizationHeader);
         if (!accessControlService.isOperator(user)) {
@@ -58,6 +112,95 @@ public class CommercialPersistenceService {
             return List.of();
         }
         return customerRepository.findByErpSellerCodeIgnoreCase(ownSeller.getErpCode()).stream().map(this::toDto).toList();
+    }
+
+    public PagedResponseDto<SellerResponseDto> searchSellers(
+            String authorizationHeader,
+            String name,
+            String erpCode,
+            String email,
+            Integer page,
+            Integer pageSize
+    ) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        int safePage = Math.max(1, page == null ? 1 : page);
+        int safePageSize = normalizePageSize(pageSize);
+        Pageable pageable = PageRequest.of(safePage - 1, safePageSize, Sort.by(Sort.Direction.DESC, "id"));
+
+        if (accessControlService.isOperator(user)) {
+            List<SellerResponseDto> own = sellerRepository.findByEmailIgnoreCase(user.email()).stream().map(this::toDto).toList();
+            return new PagedResponseDto<>(own, 1, safePageSize, own.size(), own.isEmpty() ? 0 : 1);
+        }
+
+        Specification<SellerEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            String byName = trim(name);
+            String byErp = trim(erpCode);
+            String byEmail = trim(email);
+
+            if (byName != null) predicates.add(cb.like(cb.lower(root.get("name")), "%" + byName.toLowerCase() + "%"));
+            if (byErp != null) predicates.add(cb.like(cb.lower(root.get("erpCode")), "%" + byErp.toLowerCase() + "%"));
+            if (byEmail != null) predicates.add(cb.like(cb.lower(root.get("email")), "%" + byEmail.toLowerCase() + "%"));
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<SellerEntity> result = sellerRepository.findAll(spec, pageable);
+        return new PagedResponseDto<>(
+                result.getContent().stream().map(this::toDto).toList(),
+                safePage,
+                safePageSize,
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
+    }
+
+    public PagedResponseDto<CustomerResponseDto> searchCustomers(
+            String authorizationHeader,
+            String corporateName,
+            String erpCode,
+            String type,
+            String erpSellerCode,
+            Integer page,
+            Integer pageSize
+    ) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        int safePage = Math.max(1, page == null ? 1 : page);
+        int safePageSize = normalizePageSize(pageSize);
+        Pageable pageable = PageRequest.of(safePage - 1, safePageSize, Sort.by(Sort.Direction.DESC, "id"));
+
+        Specification<CustomerEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            String byCorporateName = trim(corporateName);
+            String byErp = trim(erpCode);
+            String byType = trim(type);
+            String bySellerErp = trim(erpSellerCode);
+
+            if (byCorporateName != null) predicates.add(cb.like(cb.lower(root.get("corporateName")), "%" + byCorporateName.toLowerCase() + "%"));
+            if (byErp != null) predicates.add(cb.like(cb.lower(root.get("erpCode")), "%" + byErp.toLowerCase() + "%"));
+            if (byType != null) predicates.add(cb.equal(cb.upper(root.get("type")), byType.toUpperCase()));
+            if (bySellerErp != null) predicates.add(cb.like(cb.lower(root.get("erpSellerCode")), "%" + bySellerErp.toLowerCase() + "%"));
+
+            if (accessControlService.isOperator(user)) {
+                SellerEntity ownSeller = resolveOperatorSeller(user);
+                String ownErp = ownSeller == null ? null : trim(ownSeller.getErpCode());
+                if (ownErp == null) {
+                    predicates.add(cb.equal(cb.literal(1), 0));
+                } else {
+                    predicates.add(cb.equal(cb.lower(root.get("erpSellerCode")), ownErp.toLowerCase()));
+                }
+            }
+
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<CustomerEntity> result = customerRepository.findAll(spec, pageable);
+        return new PagedResponseDto<>(
+                result.getContent().stream().map(this::toDto).toList(),
+                safePage,
+                safePageSize,
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
     }
 
     public SellerResponseDto createSeller(SellerRequestDto req, String authorizationHeader) {
@@ -205,6 +348,12 @@ public class CommercialPersistenceService {
     }
 
     private String trim(String v) { return v == null || v.isBlank() ? null : v.trim(); }
+
+    private int normalizePageSize(Integer pageSize) {
+        if (pageSize == null) return 10;
+        if (pageSize < 1) return 10;
+        return Math.min(pageSize, 100);
+    }
 
     private SellerEntity resolveOperatorSeller(UserDto user) {
         if (user == null || user.email() == null || user.email().isBlank()) return null;

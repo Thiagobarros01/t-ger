@@ -41,11 +41,34 @@
       <div class="section-head">
         <div>
           <h3>Vendedores</h3>
-          <p>Base para vincular clientes pelo codigo ERP do vendedor.</p>
+          <p>Busca paginada com filtros por nome, ERP e e-mail.</p>
         </div>
-        <span class="tag">{{ state.sellers.length }} item(ns)</span>
+        <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
-      <div v-if="state.sellers.length === 0" class="empty-state">Nenhum vendedor cadastrado.</div>
+
+      <div class="filters-toolbar">
+        <div class="filters-grid">
+          <label>
+            Nome
+            <input v-model="filters.name" placeholder="Ex.: lucas" />
+          </label>
+          <label>
+            Codigo ERP
+            <input v-model="filters.erpCode" placeholder="Ex.: VND-ERP-001" />
+          </label>
+          <label>
+            E-mail
+            <input v-model="filters.email" placeholder="Ex.: vendedor@empresa.com" />
+          </label>
+        </div>
+        <div class="filters-actions">
+          <button type="button" class="btn-soft" @click="clearFilters">Limpar filtros</button>
+        </div>
+      </div>
+
+      <div v-if="loading" class="empty-state">Carregando vendedores...</div>
+      <div v-else-if="loadError" class="empty-state">{{ loadError }}</div>
+      <div v-else-if="rows.length === 0" class="empty-state">Nenhum vendedor encontrado.</div>
       <div v-else class="table-scroll">
         <table>
           <thead>
@@ -59,7 +82,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="seller in paginatedSellers" :key="seller.id">
+            <tr v-for="seller in rows" :key="seller.id">
               <td>{{ seller.code }}</td>
               <td>{{ seller.erpCode }}</td>
               <td>{{ seller.name }}</td>
@@ -76,12 +99,12 @@
         </table>
       </div>
       <PaginationBar
-        :page="sellersPagination.page"
-        :page-size="sellersPagination.pageSize"
-        :total-pages="sellersPagination.totalPages"
-        :total-items="sellersPagination.totalItems"
-        @update:page="sellersPagination.setPage"
-        @update:pageSize="sellersPagination.setPageSize"
+        :page="page"
+        :page-size="pageSize"
+        :total-pages="Math.max(totalPages, 1)"
+        :total-items="totalItems"
+        @update:page="setPage"
+        @update:pageSize="setPageSize"
       />
     </div>
 
@@ -131,17 +154,24 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, onMounted } from "vue";
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import PaginationBar from "../../components/PaginationBar.vue";
 import { useCommercialData } from "../../composables/useCommercialData";
-import { usePagination } from "../../composables/usePagination";
+import { apiRequest } from "../../services/api";
 
 const { state, ensureLoaded, addSeller, updateSeller, removeSeller } = useCommercialData();
-const sellersList = computed(() => state.sellers);
-const sellersPagination = usePagination(sellersList, 10);
-const paginatedSellers = sellersPagination.paginatedItems;
 const duplicateErp = ref(false);
+const rows = ref([]);
+const totalItems = ref(0);
+const totalPages = ref(1);
+const page = ref(1);
+const pageSize = ref(10);
+const loading = ref(false);
+const loadError = ref("");
+let filtersDebounce = null;
+
+const filters = reactive({ name: "", erpCode: "", email: "" });
 const editingSeller = ref(null);
 const sellerToRemove = ref(null);
 const editSellerForm = reactive({ erpCode: "", name: "", email: "", phone: "" });
@@ -153,9 +183,30 @@ const form = reactive({
   phone: ""
 });
 
-onMounted(() => {
-  ensureLoaded();
+onMounted(async () => {
+  await ensureLoaded();
+  await loadSellers();
 });
+
+onBeforeUnmount(() => {
+  if (filtersDebounce) clearTimeout(filtersDebounce);
+});
+
+watch([page, pageSize], () => {
+  loadSellers();
+});
+
+watch(
+  () => [filters.name, filters.erpCode, filters.email],
+  () => {
+    if (page.value !== 1) {
+      page.value = 1;
+      return;
+    }
+    if (filtersDebounce) clearTimeout(filtersDebounce);
+    filtersDebounce = setTimeout(() => loadSellers(), 300);
+  }
+);
 
 async function saveSeller() {
   const erp = form.erpCode.trim();
@@ -175,6 +226,8 @@ async function saveSeller() {
   form.name = "";
   form.email = "";
   form.phone = "";
+  await ensureLoaded();
+  await loadSellers();
 }
 
 function editSeller(seller) {
@@ -195,17 +248,63 @@ async function submitSellerEdit() {
   if (!editingSeller.value) return;
   if (!editSellerForm.erpCode.trim() || !editSellerForm.name.trim()) return;
   await updateSeller(editingSeller.value.id, { ...editSellerForm });
+  await ensureLoaded();
+  await loadSellers();
   closeSellerActions();
 }
 
 async function confirmSellerRemoval() {
   if (!sellerToRemove.value) return;
   await removeSeller(sellerToRemove.value.id);
+  await ensureLoaded();
+  await loadSellers();
   closeSellerActions();
 }
 
 function closeSellerActions() {
   editingSeller.value = null;
   sellerToRemove.value = null;
+}
+
+function clearFilters() {
+  filters.name = "";
+  filters.erpCode = "";
+  filters.email = "";
+  if (page.value !== 1) page.value = 1;
+  else loadSellers();
+}
+
+function setPage(nextPage) {
+  page.value = nextPage;
+}
+
+function setPageSize(nextSize) {
+  pageSize.value = Number(nextSize) || 10;
+  page.value = 1;
+}
+
+async function loadSellers() {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    const params = new URLSearchParams({
+      page: String(page.value),
+      pageSize: String(pageSize.value)
+    });
+    if (filters.name.trim()) params.set("name", filters.name.trim());
+    if (filters.erpCode.trim()) params.set("erpCode", filters.erpCode.trim());
+    if (filters.email.trim()) params.set("email", filters.email.trim());
+    const response = await apiRequest(`/api/commercial/sellers/paged?${params.toString()}`);
+    rows.value = response.items ?? [];
+    totalItems.value = response.totalItems ?? 0;
+    totalPages.value = Math.max(response.totalPages ?? 1, 1);
+  } catch {
+    rows.value = [];
+    totalItems.value = 0;
+    totalPages.value = 1;
+    loadError.value = "Nao foi possivel carregar vendedores.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>

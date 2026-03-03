@@ -26,6 +26,11 @@ public class CrmDealController {
         return service.createDeal(request);
     }
 
+    @PatchMapping("/{dealId}")
+    public DealResponseDto update(@PathVariable Long dealId, @Valid @RequestBody UpdateDealRequestDto request) {
+        return service.updateDeal(dealId, request);
+    }
+
     @PatchMapping("/{dealId}/stage")
     public DealResponseDto moveStage(@PathVariable Long dealId, @Valid @RequestBody MoveDealStageRequestDto request) {
         return service.moveStage(dealId, request);

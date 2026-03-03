@@ -7,31 +7,53 @@
         <button :class="{ 'btn-soft': viewMode === 'mine' }" @click="viewMode = 'mine'">Chamados para mim</button>
         <button :class="{ 'btn-soft': viewMode === 'all' }" @click="viewMode = 'all'">Todos do modulo</button>
       </div>
-      <p class="muted" style="margin-top: 8px">
-        Operador normalmente ve apenas os seus chamados/dados. Aqui a regra ja fica visivel na interface.
-      </p>
+
+      <div class="filters-toolbar" style="margin-top: 10px; margin-bottom: 0">
+        <div class="filters-grid">
+          <label>
+            Assunto
+            <input v-model="filters.subject" placeholder="Ex.: vpn, mouse, inventario" />
+          </label>
+          <label>
+            Status
+            <input v-model="filters.status" placeholder="Ex.: pendente, resolvido" />
+          </label>
+          <label>
+            Responsavel
+            <input v-model="filters.assignedTo" placeholder="Ex.: joao suporte" />
+          </label>
+        </div>
+        <div class="filters-actions">
+          <button type="button" class="btn-soft" @click="clearFilters">Limpar filtros</button>
+        </div>
+      </div>
     </div>
 
     <div class="ticket-layout">
       <div class="ticket-list">
-        <div
-          v-for="ticket in paginatedTickets"
-          :key="ticket.id"
-          class="ticket-item"
-          :class="{ active: selectedTicket?.id === ticket.id }"
-          @click="selectedTicketId = ticket.id"
-        >
-          <h4>#{{ ticket.id }} - {{ ticket.subject }}</h4>
-          <p>{{ ticket.requester }} | {{ ticket.priority }} | {{ ticket.status }}</p>
-        </div>
-        <div v-if="visibleTickets.length === 0" class="empty-state">Nenhum chamado visivel para este usuario/perfil.</div>
+        <div v-if="loading" class="empty-state">Carregando chamados...</div>
+        <div v-else-if="loadError" class="empty-state">{{ loadError }}</div>
+        <template v-else>
+          <div
+            v-for="ticket in rows"
+            :key="ticket.id"
+            class="ticket-item"
+            :class="{ active: selectedTicket?.id === ticket.id }"
+            @click="selectedTicketId = ticket.id"
+          >
+            <h4>#{{ ticket.id }} - {{ ticket.subject }}</h4>
+            <p>{{ ticket.requester }} | {{ ticket.priority }} | {{ ticket.status }}</p>
+          </div>
+          <div v-if="rows.length === 0" class="empty-state">Nenhum chamado encontrado.</div>
+        </template>
+
         <PaginationBar
-          :page="ticketsPagination.page"
-          :page-size="ticketsPagination.pageSize"
-          :total-pages="ticketsPagination.totalPages"
-          :total-items="ticketsPagination.totalItems"
-          @update:page="ticketsPagination.setPage"
-          @update:pageSize="ticketsPagination.setPageSize"
+          :page="page"
+          :page-size="pageSize"
+          :total-pages="Math.max(totalPages, 1)"
+          :total-items="totalItems"
+          @update:page="setPage"
+          @update:pageSize="setPageSize"
         />
       </div>
 
@@ -67,56 +89,72 @@
       </div>
 
       <div class="ticket-chat" v-else>
-        <div class="empty-state">Nenhum chamado cadastrado ainda.</div>
+        <div class="empty-state">Nenhum chamado selecionado.</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import PaginationBar from "../../components/PaginationBar.vue";
 import { useSession } from "../../composables/useSession";
 import { useTiData } from "../../composables/useTiData";
-import { usePagination } from "../../composables/usePagination";
+import { apiRequest } from "../../services/api";
 
 const { currentUser } = useSession();
-const { state: tiState, addTicketMessage, updateTicketStatus, ensureLoaded: ensureTiLoaded } = useTiData();
-
-const selectedTicketId = ref(tiState.tickets[0]?.id ?? null);
+const { addTicketMessage, updateTicketStatus, ensureLoaded: ensureTiLoaded } = useTiData();
+const selectedTicketId = ref(null);
 const draftMessage = ref("");
 const viewMode = ref("mine");
+const rows = ref([]);
+const totalItems = ref(0);
+const totalPages = ref(1);
+const page = ref(1);
+const pageSize = ref(8);
+const loading = ref(false);
+const loadError = ref("");
+let filtersDebounce = null;
 
-const visibleTickets = computed(() => {
-  const user = currentUser.value;
-  if (!user) return [];
-  if (user.profile === "ADMINISTRADOR") return tiState.tickets;
-  if (user.profile === "GESTOR") {
-    return viewMode.value === "all"
-      ? tiState.tickets
-      : tiState.tickets.filter((ticket) => ticket.assignedTo === user.name || ticket.requester === user.name);
-  }
-  return tiState.tickets.filter((ticket) => ticket.assignedTo === user.name || ticket.requester === user.name);
+const filters = reactive({
+  subject: "",
+  status: "",
+  assignedTo: ""
 });
-const ticketsPagination = usePagination(visibleTickets, 8);
-const paginatedTickets = ticketsPagination.paginatedItems;
 
-const selectedTicket = computed(() => visibleTickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? visibleTickets.value[0] ?? null);
+const selectedTicket = computed(() => rows.value.find((ticket) => ticket.id === selectedTicketId.value) ?? rows.value[0] ?? null);
 
-onMounted(() => {
-  ensureTiLoaded();
+onMounted(async () => {
+  await ensureTiLoaded();
+  await loadTickets();
+});
+
+onBeforeUnmount(() => {
+  if (filtersDebounce) clearTimeout(filtersDebounce);
+});
+
+watch([page, pageSize, viewMode], () => {
+  loadTickets();
 });
 
 watch(
-  visibleTickets,
-  (list) => {
-    if (!list.some((ticket) => ticket.id === selectedTicketId.value)) {
-      selectedTicketId.value = list[0]?.id ?? null;
+  () => [filters.subject, filters.status, filters.assignedTo],
+  () => {
+    if (page.value !== 1) {
+      page.value = 1;
+      return;
     }
-  },
-  { immediate: true }
+    if (filtersDebounce) clearTimeout(filtersDebounce);
+    filtersDebounce = setTimeout(() => loadTickets(), 300);
+  }
 );
+
+watch(rows, (list) => {
+  if (!list.some((ticket) => ticket.id === selectedTicketId.value)) {
+    selectedTicketId.value = list[0]?.id ?? null;
+  }
+});
 
 async function sendMessage() {
   const text = draftMessage.value.trim();
@@ -127,10 +165,62 @@ async function sendMessage() {
     message: text
   });
   draftMessage.value = "";
+  await loadTickets();
 }
 
 async function setTicketStatus(status) {
   if (!selectedTicket.value) return;
   await updateTicketStatus(selectedTicket.value.id, status);
+  await loadTickets();
+}
+
+function clearFilters() {
+  filters.subject = "";
+  filters.status = "";
+  filters.assignedTo = "";
+  if (page.value !== 1) page.value = 1;
+  else loadTickets();
+}
+
+function setPage(nextPage) {
+  page.value = nextPage;
+}
+
+function setPageSize(nextSize) {
+  pageSize.value = Number(nextSize) || 8;
+  page.value = 1;
+}
+
+async function loadTickets() {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    const params = new URLSearchParams({
+      page: String(page.value),
+      pageSize: String(pageSize.value)
+    });
+
+    if (filters.subject.trim()) params.set("subject", filters.subject.trim());
+    if (filters.status.trim()) params.set("status", filters.status.trim());
+
+    const isOperator = currentUser.value?.profile === "OPERADOR";
+    if (filters.assignedTo.trim()) {
+      params.set("assignedTo", filters.assignedTo.trim());
+    } else if (!isOperator && viewMode.value === "mine") {
+      params.set("assignedTo", currentUser.value?.name ?? "");
+    }
+
+    const response = await apiRequest(`/api/ti/tickets/paged?${params.toString()}`);
+    rows.value = response.items ?? [];
+    totalItems.value = response.totalItems ?? 0;
+    totalPages.value = Math.max(response.totalPages ?? 1, 1);
+  } catch {
+    rows.value = [];
+    totalItems.value = 0;
+    totalPages.value = 1;
+    loadError.value = "Nao foi possivel carregar chamados.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>

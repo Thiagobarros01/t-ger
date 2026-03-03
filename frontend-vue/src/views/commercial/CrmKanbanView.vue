@@ -16,8 +16,13 @@
     </div>
 
     <div class="panel">
-      <h3 style="margin-top: 0">Nova oportunidade</h3>
-      <form class="form-grid" @submit.prevent="saveDeal">
+      <div class="section-head" style="margin-bottom: 0">
+        <h3 style="margin-top: 0">Nova oportunidade</h3>
+        <button type="button" class="btn-soft" @click="createCollapsed = !createCollapsed">
+          {{ createCollapsed ? "Expandir" : "Minimizar" }}
+        </button>
+      </div>
+      <form v-if="!createCollapsed" class="form-grid" @submit.prevent="saveDeal">
         <label>
           Cliente
           <select v-model.number="dealForm.clienteId" required>
@@ -89,12 +94,13 @@
           <TransitionGroup name="kanban-move" tag="div" class="kanban-cards">
             <article
               class="kanban-card"
-              :class="{ 'kanban-card--dragging': draggingDealId === deal.id }"
+              :class="{ 'kanban-card--dragging': draggingDealId === deal.id, 'kanban-card--selected': selectedDealId === deal.id }"
               v-for="deal in stageDeals(stage.id)"
               :key="deal.id"
               draggable="true"
               @dragstart="onDragStart(deal)"
               @dragend="onDragEnd"
+              @click="selectDeal(deal)"
             >
             <div class="kanban-card__head">
               <strong>#{{ deal.id }}</strong>
@@ -104,7 +110,7 @@
             <p>Vendedor: {{ sellerName(deal.vendedorId) }}</p>
             <p>Valor: {{ formatCurrency(deal.valorEstimado) }}</p>
             <div class="actions-row">
-              <button type="button" @click="selectDeal(deal)">Gerenciar</button>
+              <button type="button" @click.stop="selectDeal(deal)">Gerenciar</button>
             </div>
             </article>
           </TransitionGroup>
@@ -122,6 +128,48 @@
         <button type="button" class="btn-soft" @click="clearSelectedDeal">Fechar</button>
       </div>
       <div class="form-grid">
+        <label>
+          Cliente
+          <select v-model.number="dealEdit.clienteId">
+            <option :value="null">Selecione</option>
+            <option v-for="customer in state.customers" :key="customer.id" :value="customer.id">
+              {{ customer.corporateName }} ({{ customer.code }})
+            </option>
+          </select>
+        </label>
+        <label>
+          Empresa (B2B)
+          <select v-model.number="dealEdit.empresaId">
+            <option :value="null">Sem empresa</option>
+            <option v-for="company in state.companies" :key="company.id" :value="company.id">
+              {{ company.name }}
+            </option>
+          </select>
+        </label>
+        <label>
+          Vendedor (owner)
+          <select v-model.number="dealEdit.vendedorId">
+            <option :value="null">Selecione</option>
+            <option v-for="seller in state.sellers" :key="seller.id" :value="seller.id">
+              {{ seller.name }}
+            </option>
+          </select>
+        </label>
+        <label>
+          Valor estimado
+          <input v-model="dealEdit.valorEstimado" type="number" step="0.01" />
+        </label>
+        <label>
+          Probabilidade (%)
+          <input v-model.number="dealEdit.probabilidade" type="number" min="0" max="100" />
+        </label>
+        <label>
+          Fechamento previsto
+          <input v-model="dealEdit.dataPrevistaFechamento" type="date" />
+        </label>
+        <div class="full actions-row">
+          <button type="button" class="btn-primary" @click="saveDealEdit">Salvar dados do card</button>
+        </div>
         <label>
           Mover para etapa
           <select v-model.number="dealAction.stageId">
@@ -155,10 +203,11 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import { useCrmData } from "../../composables/useCrmData";
 
-const { state, ensureLoaded, stagesForPipeline, dealsByStage, createDeal, moveDealStage, closeDealWon, closeDealLost } = useCrmData();
+const { state, ensureLoaded, stagesForPipeline, dealsByStage, createDeal, updateDeal, moveDealStage, closeDealWon, closeDealLost } = useCrmData();
 
 const selectedPipelineId = ref(null);
 const selectedDealId = ref(null);
+const createCollapsed = ref(false);
 const errorMessage = ref("");
 const draggingDealId = ref(null);
 const dragOverStageId = ref(null);
@@ -176,6 +225,15 @@ const dealForm = reactive({
 const dealAction = reactive({
   stageId: null,
   motivoPerdaId: null
+});
+
+const dealEdit = reactive({
+  clienteId: null,
+  empresaId: null,
+  vendedorId: null,
+  valorEstimado: "",
+  probabilidade: 0,
+  dataPrevistaFechamento: ""
 });
 
 onMounted(async () => {
@@ -253,6 +311,12 @@ function selectDeal(deal) {
   selectedDealId.value = deal.id;
   dealAction.stageId = deal.stageId;
   dealAction.motivoPerdaId = deal.motivoPerdaId;
+  dealEdit.clienteId = deal.clienteId;
+  dealEdit.empresaId = deal.empresaId;
+  dealEdit.vendedorId = deal.vendedorId;
+  dealEdit.valorEstimado = deal.valorEstimado ?? "";
+  dealEdit.probabilidade = deal.probabilidade ?? 0;
+  dealEdit.dataPrevistaFechamento = deal.dataPrevistaFechamento ?? "";
   errorMessage.value = "";
 }
 
@@ -260,7 +324,30 @@ function clearSelectedDeal() {
   selectedDealId.value = null;
   dealAction.stageId = null;
   dealAction.motivoPerdaId = null;
+  dealEdit.clienteId = null;
+  dealEdit.empresaId = null;
+  dealEdit.vendedorId = null;
+  dealEdit.valorEstimado = "";
+  dealEdit.probabilidade = 0;
+  dealEdit.dataPrevistaFechamento = "";
   errorMessage.value = "";
+}
+
+async function saveDealEdit() {
+  if (!selectedDeal.value) return;
+  errorMessage.value = "";
+  try {
+    await updateDeal(selectedDeal.value.id, {
+      clienteId: dealEdit.clienteId,
+      empresaId: selectedPipeline.value?.tipoNegocio === "B2B" ? dealEdit.empresaId : null,
+      vendedorId: dealEdit.vendedorId,
+      valorEstimado: dealEdit.valorEstimado === "" ? null : Number(dealEdit.valorEstimado),
+      probabilidade: dealEdit.probabilidade,
+      dataPrevistaFechamento: dealEdit.dataPrevistaFechamento || null
+    });
+  } catch (err) {
+    errorMessage.value = parseError(err);
+  }
 }
 
 async function moveStage() {

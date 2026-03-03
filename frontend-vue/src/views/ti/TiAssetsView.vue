@@ -67,10 +67,8 @@
         </label>
 
         <label>
-          Status
-          <select v-model="form.status">
-            <option v-for="status in statuses" :key="status" :value="status">{{ status }}</option>
-          </select>
+          Status operacional
+          <input :value="createComputedStatusLabel" disabled />
         </label>
 
         <label>
@@ -93,80 +91,8 @@
           <input v-model="form.patrimony" />
         </label>
 
-        <label>
-          Responsavel
-          <div class="field-with-action">
-            <select v-model.number="form.responsibleUserId">
-              <option :value="null">Sem responsavel</option>
-              <option v-for="user in sessionState.allUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
-            </select>
-            <button type="button" class="field-add-btn" title="Cadastrar usuario rapido" @click="ui.showQuickUser = !ui.showQuickUser">+</button>
-          </div>
-        </label>
-
-        <label>
-          Vinculo do termo/contrato
-          <div class="field-with-action">
-            <select v-model.number="form.linkedTermId">
-              <option :value="null">Sem vinculo</option>
-              <option v-for="term in tiState.terms" :key="term.id" :value="term.id">
-                {{ term.defaultTermName }} - {{ term.type }}
-              </option>
-            </select>
-            <button type="button" class="field-add-btn" title="Cadastrar termo rapido" @click="ui.showQuickTerm = !ui.showQuickTerm">+</button>
-          </div>
-        </label>
-
-        <div class="full quick-inline-card" v-if="ui.showQuickUser">
-          <div class="quick-inline-card__head">
-            <strong>Cadastro rapido de usuario (responsavel)</strong>
-            <button type="button" @click="ui.showQuickUser = false">Fechar</button>
-          </div>
-          <div class="form-grid">
-            <label>
-              Nome
-              <input v-model="quickUser.name" />
-            </label>
-            <label>
-              E-mail
-              <input v-model="quickUser.email" type="email" />
-            </label>
-            <div class="full actions-row">
-              <button type="button" class="btn-primary" @click="createUserQuick">Salvar e selecionar</button>
-              <span class="muted">Criado como Operador com modulo TI.</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="full quick-inline-card" v-if="ui.showQuickTerm">
-          <div class="quick-inline-card__head">
-            <strong>Cadastro rapido de termo</strong>
-            <button type="button" @click="ui.showQuickTerm = false">Fechar</button>
-          </div>
-          <div class="form-grid">
-            <label>
-              Tipo
-              <select v-model="quickTerm.type">
-                <option value="CLT">CLT</option>
-                <option value="COMODATO">Comodato</option>
-              </select>
-            </label>
-            <label>
-              Vinculado a
-              <input v-model="quickTerm.linkedUserName" placeholder="Nome do usuario/responsavel" />
-            </label>
-            <label>
-              Data de inicio
-              <input v-model="quickTerm.startDate" type="date" />
-            </label>
-            <label>
-              Caminho documento
-              <input v-model="quickTerm.documentPath" placeholder="C:/documentos/..." />
-            </label>
-            <div class="full actions-row">
-              <button type="button" class="btn-primary" @click="createTermQuick">Salvar e selecionar</button>
-            </div>
-          </div>
+        <div class="full empty-state">
+          Vínculo de responsável e termo é controlado em <strong>Termos e Contratos</strong>.
         </div>
 
         <label>
@@ -219,7 +145,10 @@
     </details>
 
     <div class="table-panel">
-      <h3 style="margin-top: 0">Ativos cadastrados</h3>
+      <div class="section-head">
+        <h3 style="margin-top: 0">Ativos cadastrados</h3>
+        <button type="button" class="btn-soft" @click="openSummaryModal">Resumo rapido</button>
+      </div>
       <div class="panel" style="padding: 10px; margin-bottom: 10px">
         <div class="form-grid">
           <label>
@@ -240,6 +169,12 @@
             Filtrar por departamento / setor
             <input v-model="filters.department" placeholder="Ex.: TI, Comercial" />
           </label>
+          <label style="align-self: end">
+            <span class="label-inline">
+              <input type="checkbox" v-model="filters.showInactives" />
+              Mostrar inativados
+            </span>
+          </label>
           <div class="actions-row" style="align-self: end">
             <button type="button" @click="clearFilters">Limpar filtros</button>
           </div>
@@ -250,7 +185,9 @@
         Exibindo somente ativos sob sua responsabilidade.
       </p>
 
-      <div v-if="visibleAssets.length === 0" class="empty-state" style="margin-bottom: 10px">Nenhum ativo cadastrado ainda.</div>
+      <div v-if="loadingAssets" class="empty-state" style="margin-bottom: 10px">Carregando ativos...</div>
+      <div v-else-if="loadAssetsError" class="empty-state" style="margin-bottom: 10px">{{ loadAssetsError }}</div>
+      <div v-else-if="rows.length === 0" class="empty-state" style="margin-bottom: 10px">Nenhum ativo encontrado.</div>
 
       <div class="table-scroll" v-else>
         <table>
@@ -272,23 +209,39 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="asset in paginatedAssets" :key="asset.id">
+            <tr v-for="asset in rows" :key="asset.id">
               <td>{{ asset.internalCode }}</td>
               <td>{{ asset.company || "-" }}</td>
               <td>{{ asset.companyErpCode || "-" }}</td>
               <td>{{ asset.assetType }}</td>
               <td>{{ asset.department }}</td>
               <td>{{ asset.brand }} / {{ asset.model }}</td>
-              <td><span class="tag">{{ asset.status }}</span></td>
+              <td>
+                <span class="tag" :class="{ 'danger-tag': !asset.active }">{{ asset.status }}</span>
+              </td>
               <td>{{ asset.responsibleUserName || "-" }}</td>
               <td>{{ asset.linkedTermTitle || "-" }}</td>
               <td>{{ asset.ipMode }} - {{ asset.ipAddress || "-" }}</td>
               <td>{{ asset.imei || "-" }}</td>
-              <td><div v-for="(item, idx) in asset.transferHistory" :key="idx">{{ item }}</div></td>
               <td>
-                <div class="actions-row">
-                  <button type="button" @click="editAsset(asset)">Editar</button>
-                  <button type="button" @click="deleteAssetRow(asset)">Remover</button>
+                <button type="button" class="btn-soft btn-action btn-action--history" @click="openHistory(asset)">
+                  <span class="btn-action__icon">H</span>
+                  <span>Ver historico</span>
+                </button>
+              </td>
+              <td>
+                <div class="actions-row actions-row--compact">
+                  <button type="button" class="btn-action btn-action--edit" @click="editAsset(asset)">
+                    <span class="btn-action__icon">E</span>
+                    <span>Editar</span>
+                  </button>
+                  <button type="button" class="btn-soft" @click="toggleAssetActive(asset)">
+                    {{ asset.active ? "Inativar" : "Reativar" }}
+                  </button>
+                  <button type="button" class="btn-action btn-action--remove" @click="deleteAssetRow(asset)">
+                    <span class="btn-action__icon">X</span>
+                    <span>Remover</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -297,12 +250,12 @@
       </div>
 
       <PaginationBar
-        :page="assetsPagination.page"
-        :page-size="assetsPagination.pageSize"
-        :total-pages="assetsPagination.totalPages"
-        :total-items="assetsPagination.totalItems"
-        @update:page="assetsPagination.setPage"
-        @update:pageSize="assetsPagination.setPageSize"
+        :page="page"
+        :page-size="pageSize"
+        :total-pages="Math.max(totalPages, 1)"
+        :total-items="totalItems"
+        @update:page="setPage"
+        @update:pageSize="setPageSize"
       />
     </div>
 
@@ -352,10 +305,16 @@
           <input v-model="editAssetForm.patrimony" />
         </label>
         <label>
-          Status
-          <select v-model="editAssetForm.status">
-            <option v-for="status in statuses" :key="status" :value="status">{{ status }}</option>
-          </select>
+          Status operacional
+          <input :value="editingAsset?.status || '-'" disabled />
+        </label>
+        <label>
+          Responsavel atual
+          <input :value="editingAsset?.responsibleUserName || 'Sem responsavel'" disabled />
+        </label>
+        <label>
+          Termo atual
+          <input :value="editingAsset?.linkedTermTitle || 'Sem termo'" disabled />
         </label>
         <label>
           Modo IP
@@ -395,24 +354,136 @@
         </div>
       </div>
     </div>
+
+    <div class="modal-overlay" v-if="historyModalOpen" @click.self="closeHistoryModal">
+      <div class="modal-card">
+        <div class="section-head">
+          <div>
+            <h3>Historico do ativo {{ historyAsset?.internalCode }}</h3>
+            <p>
+              Atual: <strong>{{ historyAsset?.responsibleUserName || "Sem responsavel" }}</strong>
+              | Status: <strong>{{ historyAsset?.status || "-" }}</strong>
+            </p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeHistoryModal">Fechar</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Responsavel
+            <input v-model="historyFilters.responsible" placeholder="Filtrar por nome" />
+          </label>
+          <label>
+            Status
+            <input v-model="historyFilters.status" placeholder="Filtrar por status" />
+          </label>
+          <label>
+            Evento
+            <select v-model="historyFilters.eventType">
+              <option value="">Todos</option>
+              <option value="CADASTRO">Cadastro</option>
+              <option value="ENTREGA">Entrega</option>
+              <option value="DEVOLUCAO">Devolucao</option>
+              <option value="TRANSFERENCIA">Transferencia</option>
+              <option value="ATUALIZACAO">Atualizacao</option>
+            </select>
+          </label>
+          <div class="actions-row" style="align-self: end">
+            <button type="button" @click="clearHistoryFilters">Limpar</button>
+          </div>
+        </div>
+
+        <div class="table-scroll" v-if="historyRows.length > 0" style="margin-top: 10px">
+          <table>
+            <thead>
+              <tr>
+                <th>Quando</th>
+                <th>Evento</th>
+                <th>Responsavel</th>
+                <th>Status</th>
+                <th>Termo</th>
+                <th>Alterado por</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in historyRows" :key="item.id">
+                <td>{{ formatDateTime(item.changedAt) }}</td>
+                <td><span class="tag">{{ item.eventType }}</span></td>
+                <td>{{ item.previousResponsibleUserName || "-" }} -> {{ item.newResponsibleUserName || "-" }}</td>
+                <td>{{ item.previousStatus || "-" }} -> {{ item.newStatus || "-" }}</td>
+                <td>
+                  {{ item.previousTermTitle || "-" }} (id: {{ item.previousTermId ?? "-" }}) ->
+                  {{ item.newTermTitle || "-" }} (id: {{ item.newTermId ?? "-" }})
+                </td>
+                <td>{{ item.changedByName || "-" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-state" v-else-if="loadingHistory" style="margin-top: 10px">Carregando historico...</div>
+        <div class="empty-state" v-else-if="historyError" style="margin-top: 10px">{{ historyError }}</div>
+        <div class="empty-state" v-else style="margin-top: 10px">Nenhum evento de historico encontrado.</div>
+
+        <PaginationBar
+          :page="historyPage"
+          :page-size="historyPageSize"
+          :total-pages="Math.max(historyTotalPages, 1)"
+          :total-items="historyTotalItems"
+          @update:page="setHistoryPage"
+          @update:pageSize="setHistoryPageSize"
+        />
+      </div>
+    </div>
+
+    <div class="modal-overlay" v-if="summaryModalOpen" @click.self="summaryModalOpen = false">
+      <div class="modal-card modal-card--small">
+        <div class="section-head">
+          <div>
+            <h3>Resumo de ativos</h3>
+            <p>Visao rapida do total cadastrado e da situacao operacional.</p>
+          </div>
+          <button type="button" class="btn-soft" @click="summaryModalOpen = false">Fechar</button>
+        </div>
+
+        <div class="stats-row" v-if="!loadingSummary && !summaryError">
+          <div class="stat-card">
+            <span>Total cadastrados</span>
+            <strong>{{ summary.total }}</strong>
+          </div>
+          <div class="stat-card">
+            <span>Disponiveis</span>
+            <strong>{{ summary.available }}</strong>
+          </div>
+          <div class="stat-card">
+            <span>Em uso</span>
+            <strong>{{ summary.inUse }}</strong>
+          </div>
+          <div class="stat-card">
+            <span>Devolvidos</span>
+            <strong>{{ summary.returned }}</strong>
+          </div>
+        </div>
+        <div class="empty-state" v-else-if="loadingSummary">Carregando resumo...</div>
+        <div class="empty-state" v-else>{{ summaryError }}</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, reactive, ref, onMounted } from "vue";
+import { computed, reactive, ref, onBeforeUnmount, onMounted, watch } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import PaginationBar from "../../components/PaginationBar.vue";
 import { useSession } from "../../composables/useSession";
 import { useTiData } from "../../composables/useTiData";
 import { useMasterData } from "../../composables/useMasterData";
-import { usePagination } from "../../composables/usePagination";
+import { apiRequest } from "../../services/api";
 
-const { currentUser, addUser, ensureLoaded: ensureUsersLoaded, state: sessionState } = useSession();
-const { state: tiState, addAsset, addTerm, updateAsset, removeAsset, ensureLoaded: ensureTiLoaded } = useTiData();
+const { currentUser, ensureLoaded: ensureUsersLoaded, state: sessionState } = useSession();
+const { addAsset, updateAsset, removeAsset, ensureLoaded: ensureTiLoaded } = useTiData();
 const { state: masterData, ensureLoaded: ensureMasterDataLoaded, addCompany } = useMasterData();
 
 const assetTypes = ["NOTEBOOK", "DESKTOP", "MONITOR", "IMPRESSORA", "ROTEADOR", "CELULAR", "TABLET", "OUTRO"];
-const statuses = ["DISPONIVEL", "EM_USO", "MANUTENCAO", "DESCARTE"];
 
 const form = reactive({
   company: "",
@@ -424,9 +495,6 @@ const form = reactive({
   serialNumber: "",
   patrimony: "",
   detailedDescription: "",
-  status: "DISPONIVEL",
-  responsibleUserId: null,
-  linkedTermId: null,
   ipMode: "DHCP",
   ipAddress: "",
   imei: ""
@@ -435,18 +503,24 @@ const form = reactive({
 const filters = reactive({
   type: "",
   responsible: "",
-  department: ""
+  department: "",
+  showInactives: false
 });
+const rows = ref([]);
+const totalItems = ref(0);
+const totalPages = ref(1);
+const page = ref(1);
+const pageSize = ref(10);
+const loadingAssets = ref(false);
+const loadAssetsError = ref("");
+let filtersDebounce = null;
+let historyDebounce = null;
 
 const ui = reactive({
-  showQuickCompany: false,
-  showQuickUser: false,
-  showQuickTerm: false
+  showQuickCompany: false
 });
 
 const quickCompany = reactive({ name: "", erpCode: "" });
-const quickUser = reactive({ name: "", email: "" });
-const quickTerm = reactive({ type: "COMODATO", linkedUserName: "", startDate: "", documentPath: "" });
 const editingAsset = ref(null);
 const assetToRemove = ref(null);
 const editAssetForm = reactive({
@@ -458,7 +532,6 @@ const editAssetForm = reactive({
   model: "",
   serialNumber: "",
   patrimony: "",
-  status: "DISPONIVEL",
   ipMode: "DHCP",
   ipAddress: "",
   imei: "",
@@ -469,30 +542,74 @@ const editAssetForm = reactive({
 const extraFieldEntries = ref([]);
 const transferHistoryText = ref("");
 const showImeiField = computed(() => ["CELULAR", "TABLET"].includes(form.assetType));
-
-const visibleAssets = computed(() => {
-  const base =
-    currentUser.value.profile === "OPERADOR"
-      ? tiState.assets.filter((asset) => asset.responsibleUserId === currentUser.value.id)
-      : tiState.assets;
-
-  return base.filter((asset) => {
-    const byType = !filters.type || asset.assetType === filters.type;
-    const byResponsible = !filters.responsible || asset.responsibleUserName === filters.responsible;
-    const byDepartment =
-      !filters.department || (asset.department ?? "").toLowerCase().includes(filters.department.trim().toLowerCase());
-    return byType && byResponsible && byDepartment;
-  });
+const historyModalOpen = ref(false);
+const historyAsset = ref(null);
+const historyRows = ref([]);
+const historyTotalItems = ref(0);
+const historyTotalPages = ref(1);
+const historyPage = ref(1);
+const historyPageSize = ref(10);
+const loadingHistory = ref(false);
+const historyError = ref("");
+const historyFilters = reactive({
+  responsible: "",
+  status: "",
+  eventType: ""
 });
-
-const assetsPagination = usePagination(visibleAssets, 10);
-const paginatedAssets = assetsPagination.paginatedItems;
+const summaryModalOpen = ref(false);
+const loadingSummary = ref(false);
+const summaryError = ref("");
+const summary = reactive({
+  total: 0,
+  available: 0,
+  inUse: 0,
+  returned: 0
+});
+const createComputedStatusLabel = computed(() => "DISPONIVEL");
 
 onMounted(() => {
   ensureUsersLoaded();
-  ensureMasterDataLoaded();
-  ensureTiLoaded();
+  ensureMasterDataLoaded().then(() => applyDefaultCompany());
+  ensureTiLoaded().then(() => loadAssets());
 });
+
+onBeforeUnmount(() => {
+  if (filtersDebounce) clearTimeout(filtersDebounce);
+  if (historyDebounce) clearTimeout(historyDebounce);
+});
+
+watch([page, pageSize], () => {
+  loadAssets();
+});
+
+watch(
+  () => [filters.type, filters.responsible, filters.department, filters.showInactives],
+  () => {
+    if (page.value !== 1) {
+      page.value = 1;
+      return;
+    }
+    if (filtersDebounce) clearTimeout(filtersDebounce);
+    filtersDebounce = setTimeout(() => loadAssets(), 300);
+  }
+);
+
+watch([historyPage, historyPageSize], () => {
+  if (historyModalOpen.value) loadAssetHistory();
+});
+
+watch(
+  () => [historyFilters.responsible, historyFilters.status, historyFilters.eventType],
+  () => {
+    if (!historyModalOpen.value) return;
+    if (historyPage.value !== 1) {
+      historyPage.value = 1;
+      return;
+    }
+    if (historyDebounce) clearTimeout(historyDebounce);
+    historyDebounce = setTimeout(() => loadAssetHistory(), 300);
+  }
+);
 
 function addExtraField() {
   extraFieldEntries.value.push({ key: "", value: "" });
@@ -506,6 +623,16 @@ function clearFilters() {
   filters.type = "";
   filters.responsible = "";
   filters.department = "";
+  filters.showInactives = false;
+  if (page.value !== 1) page.value = 1;
+  else loadAssets();
+}
+
+function applyDefaultCompany() {
+  if (masterData.companies.length === 1) {
+    form.company = masterData.companies[0].name;
+    form.companyErpCode = masterData.companies[0].erpCode ?? "";
+  }
 }
 
 function syncSelectedCompanyErp() {
@@ -522,9 +649,6 @@ function resetForm() {
   form.serialNumber = "";
   form.patrimony = "";
   form.detailedDescription = "";
-  form.status = "DISPONIVEL";
-  form.responsibleUserId = null;
-  form.linkedTermId = null;
   form.ipMode = "DHCP";
   form.ipAddress = "";
   form.imei = "";
@@ -543,42 +667,7 @@ async function createCompanyQuick() {
   ui.showQuickCompany = false;
 }
 
-async function createUserQuick() {
-  if (!quickUser.name.trim() || !quickUser.email.trim()) return;
-  const created = await addUser({
-    name: quickUser.name.trim(),
-    email: quickUser.email.trim(),
-    profile: "OPERADOR",
-    modules: ["TI"]
-  });
-  if (!created) return;
-  form.responsibleUserId = created.id;
-  quickUser.name = "";
-  quickUser.email = "";
-  ui.showQuickUser = false;
-}
-
-async function createTermQuick() {
-  if (!quickTerm.linkedUserName.trim()) return;
-  const created = await addTerm({
-    type: quickTerm.type,
-    linkedUserName: quickTerm.linkedUserName.trim(),
-    startDate: quickTerm.startDate || new Date().toISOString().slice(0, 10),
-    status: "Ativo",
-    documentPath: quickTerm.documentPath.trim()
-  });
-  if (!created) return;
-  form.linkedTermId = created.id;
-  quickTerm.type = "COMODATO";
-  quickTerm.linkedUserName = "";
-  quickTerm.startDate = "";
-  quickTerm.documentPath = "";
-  ui.showQuickTerm = false;
-}
-
 async function saveAsset() {
-  const responsible = sessionState.allUsers.find((user) => user.id === form.responsibleUserId);
-  const term = tiState.terms.find((item) => item.id === form.linkedTermId);
   const company = masterData.companies.find((item) => item.name === form.company);
   const extraFields = Object.fromEntries(
     extraFieldEntries.value
@@ -596,11 +685,11 @@ async function saveAsset() {
     serialNumber: form.serialNumber,
     patrimony: form.patrimony,
     detailedDescription: form.detailedDescription,
-    status: form.status,
-    responsibleUserId: form.responsibleUserId,
-    responsibleUserName: responsible?.name ?? "",
-    linkedTermId: form.linkedTermId,
-    linkedTermTitle: term?.defaultTermName ?? "",
+    status: createComputedStatusLabel.value,
+    responsibleUserId: null,
+    responsibleUserName: "",
+    linkedTermId: null,
+    linkedTermTitle: "",
     transferHistory: transferHistoryText.value.split("\n").map((line) => line.trim()).filter(Boolean),
     ipMode: form.ipMode,
     ipAddress: form.ipAddress,
@@ -609,6 +698,7 @@ async function saveAsset() {
   });
 
   resetForm();
+  await loadAssets();
 }
 
 function editAsset(asset) {
@@ -622,7 +712,6 @@ function editAsset(asset) {
   editAssetForm.model = asset.model ?? "";
   editAssetForm.serialNumber = asset.serialNumber ?? "";
   editAssetForm.patrimony = asset.patrimony ?? "";
-  editAssetForm.status = asset.status ?? "DISPONIVEL";
   editAssetForm.ipMode = asset.ipMode ?? "DHCP";
   editAssetForm.ipAddress = asset.ipAddress ?? "";
   editAssetForm.imei = asset.imei ?? "";
@@ -648,7 +737,7 @@ async function submitAssetEdit() {
     serialNumber: editAssetForm.serialNumber,
     patrimony: editAssetForm.patrimony,
     detailedDescription: editAssetForm.detailedDescription,
-    status: editAssetForm.status,
+    status: base.status,
     responsibleUserId: base.responsibleUserId ?? null,
     responsibleUserName: base.responsibleUserName ?? "",
     linkedTermId: base.linkedTermId ?? null,
@@ -659,17 +748,143 @@ async function submitAssetEdit() {
     imei: editAssetForm.imei,
     extraFields: base.extraFields ?? {}
   });
+  await loadAssets();
   closeAssetActions();
 }
 
 async function confirmAssetRemoval() {
   if (!assetToRemove.value) return;
   await removeAsset(assetToRemove.value.id);
+  await loadAssets();
   closeAssetActions();
+}
+
+async function toggleAssetActive(asset) {
+  const endpoint = asset.active ? "inactivate" : "reactivate";
+  await apiRequest(`/api/ti/assets/${asset.id}/${endpoint}`, { method: "PATCH" });
+  await loadAssets();
 }
 
 function closeAssetActions() {
   editingAsset.value = null;
   assetToRemove.value = null;
+}
+
+function openHistory(asset) {
+  historyAsset.value = asset;
+  historyModalOpen.value = true;
+  historyPage.value = 1;
+  loadAssetHistory();
+}
+
+function closeHistoryModal() {
+  historyModalOpen.value = false;
+  historyAsset.value = null;
+  historyRows.value = [];
+  historyTotalItems.value = 0;
+  historyTotalPages.value = 1;
+  historyError.value = "";
+}
+
+async function openSummaryModal() {
+  summaryModalOpen.value = true;
+  loadingSummary.value = true;
+  summaryError.value = "";
+  try {
+    const result = await apiRequest("/api/ti/assets/summary");
+    summary.total = result.total ?? 0;
+    summary.available = result.available ?? 0;
+    summary.inUse = result.inUse ?? 0;
+    summary.returned = result.returned ?? 0;
+  } catch {
+    summaryError.value = "Nao foi possivel carregar o resumo.";
+  } finally {
+    loadingSummary.value = false;
+  }
+}
+
+function clearHistoryFilters() {
+  historyFilters.responsible = "";
+  historyFilters.status = "";
+  historyFilters.eventType = "";
+  if (historyPage.value !== 1) historyPage.value = 1;
+  else loadAssetHistory();
+}
+
+function setHistoryPage(nextPage) {
+  historyPage.value = nextPage;
+}
+
+function setHistoryPageSize(nextSize) {
+  historyPageSize.value = Number(nextSize) || 10;
+  historyPage.value = 1;
+}
+
+function setPage(nextPage) {
+  page.value = nextPage;
+}
+
+function setPageSize(nextSize) {
+  pageSize.value = Number(nextSize) || 10;
+  page.value = 1;
+}
+
+async function loadAssets() {
+  loadingAssets.value = true;
+  loadAssetsError.value = "";
+  try {
+    const params = new URLSearchParams({
+      page: String(page.value),
+      pageSize: String(pageSize.value)
+    });
+    if (filters.type) params.set("assetType", filters.type);
+    if (filters.responsible.trim()) params.set("responsible", filters.responsible.trim());
+    if (filters.department.trim()) params.set("department", filters.department.trim());
+    if (filters.showInactives) params.set("showInactives", "true");
+    const response = await apiRequest(`/api/ti/assets/paged?${params.toString()}`);
+    rows.value = response.items ?? [];
+    totalItems.value = response.totalItems ?? 0;
+    totalPages.value = Math.max(response.totalPages ?? 1, 1);
+  } catch {
+    rows.value = [];
+    totalItems.value = 0;
+    totalPages.value = 1;
+    loadAssetsError.value = "Nao foi possivel carregar os ativos.";
+  } finally {
+    loadingAssets.value = false;
+  }
+}
+
+async function loadAssetHistory() {
+  if (!historyAsset.value?.id) return;
+  loadingHistory.value = true;
+  historyError.value = "";
+  try {
+    const params = new URLSearchParams({
+      page: String(historyPage.value),
+      pageSize: String(historyPageSize.value)
+    });
+    if (historyFilters.responsible.trim()) params.set("responsible", historyFilters.responsible.trim());
+    if (historyFilters.status.trim()) params.set("status", historyFilters.status.trim());
+    if (historyFilters.eventType) params.set("eventType", historyFilters.eventType);
+    const response = await apiRequest(`/api/ti/assets/${historyAsset.value.id}/history?${params.toString()}`);
+    historyRows.value = response.items ?? [];
+    historyTotalItems.value = response.totalItems ?? 0;
+    historyTotalPages.value = Math.max(response.totalPages ?? 1, 1);
+  } catch {
+    historyRows.value = [];
+    historyTotalItems.value = 0;
+    historyTotalPages.value = 1;
+    historyError.value = "Nao foi possivel carregar o historico do ativo.";
+  } finally {
+    loadingHistory.value = false;
+  }
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("pt-BR");
 }
 </script>

@@ -46,6 +46,40 @@
 
     <div class="table-panel">
       <h3 style="margin-top: 0">Usuarios cadastrados</h3>
+
+      <div class="filters-toolbar">
+        <div class="filters-grid">
+          <label>
+            Nome
+            <input v-model="filters.name" placeholder="Ex.: joao" />
+          </label>
+          <label>
+            E-mail
+            <input v-model="filters.email" placeholder="Ex.: usuario@empresa.com" />
+          </label>
+          <label>
+            Perfil
+            <select v-model="filters.profile">
+              <option value="">Todos</option>
+              <option value="ADMINISTRADOR">ADMINISTRADOR</option>
+              <option value="GESTOR">GESTOR</option>
+              <option value="OPERADOR">OPERADOR</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select v-model="filters.active">
+              <option value="">Todos</option>
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
+          </label>
+        </div>
+        <div class="filters-actions">
+          <button type="button" class="btn-soft" @click="clearFilters">Limpar filtros</button>
+        </div>
+      </div>
+
       <div class="panel" style="padding: 10px; margin-bottom: 10px" v-if="selectedUser">
         <div class="section-head" style="margin-bottom: 8px">
           <div>
@@ -70,7 +104,7 @@
             </select>
           </label>
           <label>
-            Módulos permitidos
+            Modulos permitidos
             <select
               multiple
               v-model="editPermissions.modules"
@@ -83,27 +117,19 @@
             </select>
           </label>
           <div class="actions-row" style="align-self: end">
-            <button type="button" class="btn-primary" :disabled="!selectedUser.active" @click="saveUserEmail">
-              Salvar e-mail
-            </button>
-            <button type="button" class="btn-primary" :disabled="!selectedUser.active" @click="saveUserPermissions">
-              Salvar permissões
-            </button>
-            <button type="button" :disabled="!selectedUser.active" @click="resetPasswordForSelected">
-              Redefinir senha
-            </button>
-            <button type="button" :disabled="!selectedUser.active" @click="deactivateSelected">
-              Desativar
-            </button>
-            <button type="button" :disabled="selectedUser.active" @click="reactivateSelected">
-              Reativar
-            </button>
+            <button type="button" class="btn-primary" :disabled="!selectedUser.active" @click="saveUserEmail">Salvar e-mail</button>
+            <button type="button" class="btn-primary" :disabled="!selectedUser.active" @click="saveUserPermissions">Salvar permissoes</button>
+            <button type="button" :disabled="!selectedUser.active" @click="resetPasswordForSelected">Redefinir senha</button>
+            <button type="button" :disabled="!selectedUser.active" @click="deactivateSelected">Desativar</button>
+            <button type="button" :disabled="selectedUser.active" @click="reactivateSelected">Reativar</button>
           </div>
         </div>
         <p class="muted" v-if="actionMessage" style="margin-top: 8px">{{ actionMessage }}</p>
       </div>
 
-      <div class="table-scroll">
+      <div v-if="loading" class="empty-state">Carregando usuarios...</div>
+      <div v-else-if="loadError" class="empty-state">{{ loadError }}</div>
+      <div v-else class="table-scroll">
         <table>
           <thead>
             <tr>
@@ -118,15 +144,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in paginatedUsers" :key="user.id">
+            <tr v-for="user in rows" :key="user.id">
               <td>{{ user.name }}</td>
               <td>{{ user.email }}</td>
               <td>{{ user.erpCode || "-" }}</td>
               <td><span class="tag">{{ user.profile }}</span></td>
               <td>
-                <span class="tag" :class="{ 'danger-tag': !user.active }">
-                  {{ user.active ? "Ativo" : "Inativo" }}
-                </span>
+                <span class="tag" :class="{ 'danger-tag': !user.active }">{{ user.active ? "Ativo" : "Inativo" }}</span>
               </td>
               <td>
                 <span v-if="user.profile === 'ADMINISTRADOR'" class="tag">Todos</span>
@@ -141,31 +165,43 @@
         </table>
       </div>
       <PaginationBar
-        :page="usersPagination.page"
-        :page-size="usersPagination.pageSize"
-        :total-pages="usersPagination.totalPages"
-        :total-items="usersPagination.totalItems"
-        @update:page="usersPagination.setPage"
-        @update:pageSize="usersPagination.setPageSize"
+        :page="page"
+        :page-size="pageSize"
+        :total-pages="Math.max(totalPages, 1)"
+        :total-items="totalItems"
+        @update:page="setPage"
+        @update:pageSize="setPageSize"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, computed, watch, ref, onMounted } from "vue";
+import { computed, reactive, watch, ref, onMounted, onBeforeUnmount } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import PaginationBar from "../../components/PaginationBar.vue";
 import { modules } from "../../data/mock";
 import { useSession } from "../../composables/useSession";
-import { usePagination } from "../../composables/usePagination";
+import { apiRequest } from "../../services/api";
 
-const { state, ensureLoaded, addUser, updateUserEmail, updateUserPermissions, resetUserPassword, deactivateUser, reactivateUser } = useSession();
-const usersList = computed(() => state.allUsers);
-const usersPagination = usePagination(usersList, 10);
-const paginatedUsers = usersPagination.paginatedItems;
+const { addUser, updateUserEmail, updateUserPermissions, resetUserPassword, deactivateUser, reactivateUser } = useSession();
+const rows = ref([]);
+const totalItems = ref(0);
+const totalPages = ref(1);
+const page = ref(1);
+const pageSize = ref(10);
+const loading = ref(false);
+const loadError = ref("");
+let filtersDebounce = null;
 
 const assignableModules = computed(() => modules.filter((module) => module.code !== "CONFIGURACOES"));
+
+const filters = reactive({
+  name: "",
+  email: "",
+  profile: "",
+  active: ""
+});
 
 const form = reactive({
   name: "",
@@ -182,26 +218,47 @@ const editPermissions = reactive({
 });
 const actionMessage = ref("");
 
-const selectedUser = computed(() => state.allUsers.find((user) => user.id === selectedUserId.value) ?? null);
+const selectedUser = computed(() => rows.value.find((user) => user.id === selectedUserId.value) ?? null);
 
 watch(
   () => form.profile,
   (value) => {
-    if (value === "ADMINISTRADOR") {
-      form.modules = [];
-    }
-    if (value === "GESTOR" && form.modules.length === 0) {
-      form.modules = ["TI"];
-    }
-    if (value === "OPERADOR" && form.modules.length === 0) {
-      form.modules = ["TI"];
-    }
+    if (value === "ADMINISTRADOR") form.modules = [];
+    if ((value === "GESTOR" || value === "OPERADOR") && form.modules.length === 0) form.modules = ["TI"];
+  }
+);
+
+watch(
+  () => editPermissions.profile,
+  (value) => {
+    if (value === "ADMINISTRADOR") editPermissions.modules = [];
+    if (value !== "ADMINISTRADOR" && editPermissions.modules.length === 0) editPermissions.modules = ["TI"];
   }
 );
 
 onMounted(() => {
-  ensureLoaded();
+  loadUsers();
 });
+
+onBeforeUnmount(() => {
+  if (filtersDebounce) clearTimeout(filtersDebounce);
+});
+
+watch([page, pageSize], () => {
+  loadUsers();
+});
+
+watch(
+  () => [filters.name, filters.email, filters.profile, filters.active],
+  () => {
+    if (page.value !== 1) {
+      page.value = 1;
+      return;
+    }
+    if (filtersDebounce) clearTimeout(filtersDebounce);
+    filtersDebounce = setTimeout(() => loadUsers(), 300);
+  }
+);
 
 async function submitUser() {
   await addUser({
@@ -217,6 +274,7 @@ async function submitUser() {
   form.erpCode = "";
   form.profile = "OPERADOR";
   form.modules = ["TI"];
+  await loadUsers();
 }
 
 function selectUser(user) {
@@ -227,29 +285,19 @@ function selectUser(user) {
   actionMessage.value = "";
 }
 
-watch(
-  () => editPermissions.profile,
-  (value) => {
-    if (value === "ADMINISTRADOR") {
-      editPermissions.modules = [];
-    }
-    if (value !== "ADMINISTRADOR" && editPermissions.modules.length === 0) {
-      editPermissions.modules = ["TI"];
-    }
-  }
-);
-
 async function saveUserEmail() {
   if (!selectedUser.value) return;
   if (!editEmailValue.value.trim()) return;
   await updateUserEmail(selectedUser.value.id, editEmailValue.value);
   actionMessage.value = "E-mail atualizado com sucesso.";
+  await loadUsers();
 }
 
 async function saveUserPermissions() {
   if (!selectedUser.value) return;
   await updateUserPermissions(selectedUser.value.id, editPermissions.profile, editPermissions.modules);
-  actionMessage.value = "Permissões atualizadas com sucesso.";
+  actionMessage.value = "Permissoes atualizadas com sucesso.";
+  await loadUsers();
 }
 
 async function resetPasswordForSelected() {
@@ -262,12 +310,14 @@ async function deactivateSelected() {
   if (!selectedUser.value) return;
   await deactivateUser(selectedUser.value.id);
   actionMessage.value = "Usuario desativado (sem exclusao).";
+  await loadUsers();
 }
 
 async function reactivateSelected() {
   if (!selectedUser.value) return;
   await reactivateUser(selectedUser.value.id);
   actionMessage.value = "Usuario reativado.";
+  await loadUsers();
 }
 
 function effectiveRule(profile) {
@@ -277,8 +327,53 @@ function effectiveRule(profile) {
 }
 
 function formatModules(moduleCodes) {
-  return moduleCodes
-    .map((code) => modules.find((item) => item.code === code)?.label ?? code)
-    .join(", ");
+  return moduleCodes.map((code) => modules.find((item) => item.code === code)?.label ?? code).join(", ");
+}
+
+function clearFilters() {
+  filters.name = "";
+  filters.email = "";
+  filters.profile = "";
+  filters.active = "";
+  if (page.value !== 1) page.value = 1;
+  else loadUsers();
+}
+
+function setPage(nextPage) {
+  page.value = nextPage;
+}
+
+function setPageSize(nextSize) {
+  pageSize.value = Number(nextSize) || 10;
+  page.value = 1;
+}
+
+async function loadUsers() {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    const params = new URLSearchParams({
+      page: String(page.value),
+      pageSize: String(pageSize.value)
+    });
+    if (filters.name.trim()) params.set("name", filters.name.trim());
+    if (filters.email.trim()) params.set("email", filters.email.trim());
+    if (filters.profile) params.set("profile", filters.profile);
+    if (filters.active) params.set("active", filters.active);
+    const response = await apiRequest(`/api/admin/users/paged?${params.toString()}`);
+    rows.value = response.items ?? [];
+    totalItems.value = response.totalItems ?? 0;
+    totalPages.value = Math.max(response.totalPages ?? 1, 1);
+    if (!rows.value.some((user) => user.id === selectedUserId.value)) {
+      selectedUserId.value = null;
+    }
+  } catch {
+    rows.value = [];
+    totalItems.value = 0;
+    totalPages.value = 1;
+    loadError.value = "Nao foi possivel carregar usuarios.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>

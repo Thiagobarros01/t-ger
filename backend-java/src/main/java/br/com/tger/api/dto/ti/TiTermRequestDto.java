@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
 public record TiTermRequestDto(
         @NotNull TermType type,
         @NotBlank String linkedUserName,
+        Long linkedAssetId,
+        String linkedItemDescription,
         String startDate,
         @NotBlank String status,
         String documentPath

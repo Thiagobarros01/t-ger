@@ -2,6 +2,7 @@ package br.com.tger.api.persistence.controller;
 
 import br.com.tger.api.dto.common.CodeNameRequestDto;
 import br.com.tger.api.dto.common.CompanyResponseDto;
+import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.persistence.service.CompanyPersistenceService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,16 @@ public class CompanyPersistenceController {
     @GetMapping
     public List<CompanyResponseDto> list(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         return service.list(authorizationHeader);
+    }
+    @GetMapping("/paged")
+    public PagedResponseDto<CompanyResponseDto> search(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String erpCode,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize
+    ) {
+        return service.search(authorizationHeader, name, erpCode, page, pageSize);
     }
     @PostMapping
     public CompanyResponseDto create(

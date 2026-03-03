@@ -4,9 +4,16 @@ import br.com.tger.api.dto.admin.AdminUserCreateRequestDto;
 import br.com.tger.api.dto.admin.AdminUserResponseDto;
 import br.com.tger.api.dto.admin.UpdateUserPermissionsRequestDto;
 import br.com.tger.api.dto.UserDto;
+import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.persistence.entity.AppUserEntity;
 import br.com.tger.api.persistence.repository.AppUserRepository;
 import br.com.tger.api.service.AccessControlService;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +38,44 @@ public class AdminUserPersistenceService {
             return repository.findAll().stream().map(this::toDto).toList();
         }
         return repository.findById(user.id()).stream().map(this::toDto).toList();
+    }
+
+    public PagedResponseDto<AdminUserResponseDto> search(
+            String authorizationHeader,
+            String name,
+            String email,
+            String profile,
+            Boolean active,
+            Integer page,
+            Integer pageSize
+    ) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        int safePage = Math.max(1, page == null ? 1 : page);
+        int safePageSize = normalizePageSize(pageSize);
+        Pageable pageable = PageRequest.of(safePage - 1, safePageSize, Sort.by(Sort.Direction.DESC, "id"));
+
+        Specification<AppUserEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            String byName = trim(name);
+            String byEmail = trim(email);
+            String byProfile = trim(profile);
+
+            if (byName != null) predicates.add(cb.like(cb.lower(root.get("name")), "%" + byName.toLowerCase() + "%"));
+            if (byEmail != null) predicates.add(cb.like(cb.lower(root.get("email")), "%" + byEmail.toLowerCase() + "%"));
+            if (byProfile != null) predicates.add(cb.equal(cb.upper(root.get("profile").as(String.class)), byProfile.toUpperCase()));
+            if (active != null) predicates.add(cb.equal(root.get("active"), active));
+            if (accessControlService.isOperator(user)) predicates.add(cb.equal(root.get("id"), user.id()));
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<AppUserEntity> result = repository.findAll(spec, pageable);
+        return new PagedResponseDto<>(
+                result.getContent().stream().map(this::toDto).toList(),
+                safePage,
+                safePageSize,
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
     }
 
     @Transactional
@@ -95,5 +140,14 @@ public class AdminUserPersistenceService {
 
     public AdminUserResponseDto toDto(AppUserEntity e) {
         return new AdminUserResponseDto(e.getId(), e.getName(), e.getEmail(), e.getErpCode(), e.getProfile(), e.isActive(), e.getLastPasswordResetAt(), e.getModules());
+    }
+
+    private int normalizePageSize(Integer pageSize) {
+        if (pageSize == null || pageSize < 1) return 10;
+        return Math.min(pageSize, 100);
+    }
+
+    private String trim(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

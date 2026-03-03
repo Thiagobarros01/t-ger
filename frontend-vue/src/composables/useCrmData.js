@@ -102,6 +102,15 @@ export function useCrmData() {
     return updated;
   }
 
+  async function updateDeal(dealId, payload) {
+    const updated = await apiRequest(`/api/crm/deals/${dealId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+    replaceDeal(updated);
+    return updated;
+  }
+
   async function createInteraction(payload) {
     const created = await apiRequest("/api/crm/interactions", {
       method: "POST",
@@ -131,6 +140,7 @@ export function useCrmData() {
     stagesForPipeline,
     dealsByStage,
     createDeal,
+    updateDeal,
     moveDealStage,
     closeDealWon,
     closeDealLost,

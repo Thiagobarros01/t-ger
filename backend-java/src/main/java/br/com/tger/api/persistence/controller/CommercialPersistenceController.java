@@ -1,6 +1,7 @@
 package br.com.tger.api.persistence.controller;
 
 import br.com.tger.api.dto.commercial.*;
+import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.persistence.service.CommercialPersistenceService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,17 @@ public class CommercialPersistenceController {
     @GetMapping("/sellers")
     public List<SellerResponseDto> sellers(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         return service.listSellers(authorizationHeader);
+    }
+    @GetMapping("/sellers/paged")
+    public PagedResponseDto<SellerResponseDto> sellersPaged(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String erpCode,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize
+    ) {
+        return service.searchSellers(authorizationHeader, name, erpCode, email, page, pageSize);
     }
     @PostMapping("/sellers")
     public SellerResponseDto createSeller(
@@ -40,6 +52,17 @@ public class CommercialPersistenceController {
     @GetMapping("/products")
     public List<ProductResponseDto> products(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         return service.listProducts(authorizationHeader);
+    }
+    @GetMapping("/products/paged")
+    public PagedResponseDto<ProductResponseDto> productsPaged(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String line,
+            @RequestParam(required = false) String erpCode,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize
+    ) {
+        return service.searchProducts(authorizationHeader, description, line, erpCode, page, pageSize);
     }
     @PostMapping("/products")
     public ProductResponseDto createProduct(
@@ -71,6 +94,18 @@ public class CommercialPersistenceController {
     @GetMapping("/customers")
     public List<CustomerResponseDto> customers(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         return service.listCustomers(authorizationHeader);
+    }
+    @GetMapping("/customers/paged")
+    public PagedResponseDto<CustomerResponseDto> customersPaged(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestParam(required = false) String corporateName,
+            @RequestParam(required = false) String erpCode,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String erpSellerCode,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize
+    ) {
+        return service.searchCustomers(authorizationHeader, corporateName, erpCode, type, erpSellerCode, page, pageSize);
     }
     @PostMapping("/customers")
     public CustomerResponseDto createCustomer(

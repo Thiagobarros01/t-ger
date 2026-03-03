@@ -5,6 +5,7 @@ import br.com.tger.api.crm.dto.CloseDealLostRequestDto;
 import br.com.tger.api.crm.dto.CreateDealRequestDto;
 import br.com.tger.api.crm.dto.DealResponseDto;
 import br.com.tger.api.crm.dto.MoveDealStageRequestDto;
+import br.com.tger.api.crm.dto.UpdateDealRequestDto;
 import br.com.tger.api.dto.UserDto;
 import br.com.tger.api.crm.infrastructure.entity.CrmDealEntity;
 import br.com.tger.api.crm.infrastructure.entity.CrmLossReasonEntity;
@@ -120,6 +121,20 @@ public class CrmDealService {
         CrmLossReasonEntity motivo = resolveLossReasonRequired(request.motivoPerdaId());
         deal.setStatus(DealStatus.PERDIDA);
         deal.setMotivoPerda(motivo);
+        return toDto(dealRepository.save(deal));
+    }
+
+    @Transactional
+    public DealResponseDto updateDeal(Long dealId, UpdateDealRequestDto request) {
+        CrmDealEntity deal = dealRepository.findById(dealId).orElseThrow();
+        CustomerEntity cliente = customerRepository.findById(request.clienteId()).orElseThrow();
+        SellerEntity vendedor = sellerRepository.findById(request.vendedorId()).orElseThrow();
+        deal.setCliente(cliente);
+        deal.setEmpresa(resolveCompany(request.empresaId()));
+        deal.setVendedor(vendedor);
+        deal.setValorEstimado(request.valorEstimado());
+        deal.setProbabilidade(request.probabilidade());
+        deal.setDataPrevistaFechamento(request.dataPrevistaFechamento());
         return toDto(dealRepository.save(deal));
     }
 

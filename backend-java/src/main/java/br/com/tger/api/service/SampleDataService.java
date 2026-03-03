@@ -49,9 +49,9 @@ public class SampleDataService {
 
     public List<TiTermDto> getTiTerms() {
         return List.of(
-                new TiTermDto(101L, TermType.COMODATO, "Termo de Responsabilidade", "Joao Suporte", "2026-01-15", "Ativo", "C:/documentos/ti/comodato/notebook-dell-101.pdf"),
-                new TiTermDto(102L, TermType.COMODATO, "Termo de Responsabilidade", "Equipe Comercial", "2025-11-03", "Ativo", "C:/documentos/ti/comodato/tablet-comercial-102.pdf"),
-                new TiTermDto(103L, TermType.CLT, "Termo de Responsabilidade", "Colaborador Novo", "2026-02-10", "Concluido", "C:/documentos/ti/clt/kit-admissional-103.pdf")
+                new TiTermDto(101L, TermType.COMODATO, "Termo de Responsabilidade", "Joao Suporte", 201L, "TI-0001 - NOTEBOOK", "Termo de Responsabilidade comodato TI-0001 - NOTEBOOK - Joao Suporte", "2026-01-15", "Ativo", "C:/documentos/ti/comodato/notebook-dell-101.pdf", true),
+                new TiTermDto(102L, TermType.COMODATO, "Termo de Responsabilidade", "Equipe Comercial", 202L, "TI-0002 - TABLET", "Termo de Responsabilidade comodato TI-0002 - TABLET - Equipe Comercial", "2025-11-03", "Ativo", "C:/documentos/ti/comodato/tablet-comercial-102.pdf", true),
+                new TiTermDto(103L, TermType.CLT, "Termo de Responsabilidade", "Colaborador Novo", null, "Kit admissional", "Termo de Responsabilidade clt Kit admissional - Colaborador Novo", "2026-02-10", "Concluido", "C:/documentos/ti/clt/kit-admissional-103.pdf", true)
         );
     }
 
@@ -78,7 +78,8 @@ public class SampleDataService {
                         IpMode.DHCP,
                         "192.168.0.45",
                         null,
-                        Map.of("Sistema Operacional", "Windows 11 Pro")
+                        Map.of("Sistema Operacional", "Windows 11 Pro"),
+                        true
                 ),
                 new TiAssetDto(
                         202L,
@@ -101,7 +102,8 @@ public class SampleDataService {
                         IpMode.ESTATICO,
                         "10.0.0.88",
                         "359999999999999",
-                        Map.of("Plano", "Corporativo 20GB")
+                        Map.of("Plano", "Corporativo 20GB"),
+                        true
                 )
         );
     }

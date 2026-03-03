@@ -27,6 +27,12 @@ public class TiTermEntity {
     @Column(name = "linked_user_name", nullable = false)
     private String linkedUserName;
 
+    @Column(name = "linked_asset_id")
+    private Long linkedAssetId;
+
+    @Column(name = "linked_item_description")
+    private String linkedItemDescription;
+
     @Column(name = "start_date")
     private String startDate;
 
@@ -36,6 +42,9 @@ public class TiTermEntity {
     @Column(name = "document_path")
     private String documentPath;
 
+    @Column(nullable = false)
+    private boolean active = true;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public TermType getType() { return type; }
@@ -44,10 +53,16 @@ public class TiTermEntity {
     public void setDefaultTermName(String defaultTermName) { this.defaultTermName = defaultTermName; }
     public String getLinkedUserName() { return linkedUserName; }
     public void setLinkedUserName(String linkedUserName) { this.linkedUserName = linkedUserName; }
+    public Long getLinkedAssetId() { return linkedAssetId; }
+    public void setLinkedAssetId(Long linkedAssetId) { this.linkedAssetId = linkedAssetId; }
+    public String getLinkedItemDescription() { return linkedItemDescription; }
+    public void setLinkedItemDescription(String linkedItemDescription) { this.linkedItemDescription = linkedItemDescription; }
     public String getStartDate() { return startDate; }
     public void setStartDate(String startDate) { this.startDate = startDate; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getDocumentPath() { return documentPath; }
     public void setDocumentPath(String documentPath) { this.documentPath = documentPath; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
 }

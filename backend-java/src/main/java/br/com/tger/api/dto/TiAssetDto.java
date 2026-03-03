@@ -28,6 +28,7 @@ public record TiAssetDto(
         IpMode ipMode,
         String ipAddress,
         String imei,
-        Map<String, String> extraFields
+        Map<String, String> extraFields,
+        boolean active
 ) {
 }

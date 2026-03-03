@@ -7,8 +7,12 @@ public record TiTermDto(
         TermType type,
         String defaultTermName,
         String linkedUserName,
+        Long linkedAssetId,
+        String linkedItemDescription,
+        String description,
         String startDate,
         String status,
-        String documentPath
+        String documentPath,
+        boolean active
 ) {
 }

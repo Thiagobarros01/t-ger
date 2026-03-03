@@ -60,14 +60,45 @@
       <div class="section-head">
         <div>
           <h3>Clientes</h3>
-          <p>Lista local em memoria para validar cadastro e importacao.</p>
+          <p>Busca paginada no servidor com filtros por dados comerciais.</p>
         </div>
-        <span class="tag">{{ state.customers.length }} item(ns)</span>
+        <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
+
+      <div class="filters-toolbar">
+        <div class="filters-grid">
+          <label>
+            Razao social
+            <input v-model="filters.corporateName" placeholder="Ex.: mercado bom preco" />
+          </label>
+          <label>
+            Codigo ERP
+            <input v-model="filters.erpCode" placeholder="Ex.: CLI-ERP-001" />
+          </label>
+          <label>
+            Tipo
+            <select v-model="filters.type">
+              <option value="">Todos</option>
+              <option value="PJ">PJ</option>
+              <option value="PF">PF</option>
+            </select>
+          </label>
+          <label>
+            ERP vendedor
+            <input v-model="filters.erpSellerCode" placeholder="Ex.: VND-ERP-001" />
+          </label>
+        </div>
+        <div class="filters-actions">
+          <button type="button" class="btn-soft" @click="clearFilters">Limpar filtros</button>
+        </div>
+      </div>
+
       <p class="muted" v-if="state.sellers.length === 0" style="margin-top: -4px; margin-bottom: 10px">
         Cadastre vendedores em Comercial > Cadastro de Vendedor para vincular clientes por Codigo ERP.
       </p>
-      <div v-if="state.customers.length === 0" class="empty-state">Nenhum cliente cadastrado.</div>
+      <div v-if="loading" class="empty-state">Carregando clientes...</div>
+      <div v-else-if="loadError" class="empty-state">{{ loadError }}</div>
+      <div v-else-if="rows.length === 0" class="empty-state">Nenhum cliente encontrado.</div>
       <div v-else class="table-scroll">
         <table>
           <thead>
@@ -84,7 +115,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="customer in paginatedCustomers" :key="customer.id">
+            <tr v-for="customer in rows" :key="customer.id">
               <td>{{ customer.code }}</td>
               <td>{{ customer.erpCode || "-" }}</td>
               <td>{{ customer.corporateName }}</td>
@@ -104,12 +135,12 @@
         </table>
       </div>
       <PaginationBar
-        :page="customersPagination.page"
-        :page-size="customersPagination.pageSize"
-        :total-pages="customersPagination.totalPages"
-        :total-items="customersPagination.totalItems"
-        @update:page="customersPagination.setPage"
-        @update:pageSize="customersPagination.setPageSize"
+        :page="page"
+        :page-size="pageSize"
+        :total-pages="Math.max(totalPages, 1)"
+        :total-items="totalItems"
+        @update:page="setPage"
+        @update:pageSize="setPageSize"
       />
     </div>
 
@@ -179,16 +210,29 @@
 </template>
 
 <script setup>
-import { computed, reactive, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import PaginationBar from "../../components/PaginationBar.vue";
 import { useCommercialData } from "../../composables/useCommercialData";
-import { usePagination } from "../../composables/usePagination";
+import { apiRequest } from "../../services/api";
 
 const { state, ensureLoaded, addCustomer, updateCustomer, removeCustomer } = useCommercialData();
-const customersList = computed(() => state.customers);
-const customersPagination = usePagination(customersList, 10);
-const paginatedCustomers = customersPagination.paginatedItems;
+const rows = ref([]);
+const totalItems = ref(0);
+const totalPages = ref(1);
+const page = ref(1);
+const pageSize = ref(10);
+const loading = ref(false);
+const loadError = ref("");
+let filtersDebounce = null;
+
+const filters = reactive({
+  corporateName: "",
+  erpCode: "",
+  type: "",
+  erpSellerCode: ""
+});
+
 const editingCustomer = ref(null);
 const customerToRemove = ref(null);
 const editCustomerForm = reactive({
@@ -211,9 +255,30 @@ const form = reactive({
   erpSellerCode: ""
 });
 
-onMounted(() => {
-  ensureLoaded();
+onMounted(async () => {
+  await ensureLoaded();
+  await loadCustomers();
 });
+
+onBeforeUnmount(() => {
+  if (filtersDebounce) clearTimeout(filtersDebounce);
+});
+
+watch([page, pageSize], () => {
+  loadCustomers();
+});
+
+watch(
+  () => [filters.corporateName, filters.erpCode, filters.type, filters.erpSellerCode],
+  () => {
+    if (page.value !== 1) {
+      page.value = 1;
+      return;
+    }
+    if (filtersDebounce) clearTimeout(filtersDebounce);
+    filtersDebounce = setTimeout(() => loadCustomers(), 300);
+  }
+);
 
 async function saveCustomer() {
   if (!form.corporateName.trim()) return;
@@ -233,6 +298,7 @@ async function saveCustomer() {
   form.tradeName = "";
   form.phone = "";
   form.erpSellerCode = "";
+  await loadCustomers();
 }
 
 function editCustomer(customer) {
@@ -255,17 +321,66 @@ function deleteCustomerRow(customer) {
 async function submitCustomerEdit() {
   if (!editingCustomer.value || !editCustomerForm.corporateName.trim()) return;
   await updateCustomer(editingCustomer.value.id, { ...editCustomerForm });
+  await loadCustomers();
   closeCustomerActions();
 }
 
 async function confirmCustomerRemoval() {
   if (!customerToRemove.value) return;
   await removeCustomer(customerToRemove.value.id);
+  await loadCustomers();
   closeCustomerActions();
 }
 
 function closeCustomerActions() {
   editingCustomer.value = null;
   customerToRemove.value = null;
+}
+
+function clearFilters() {
+  filters.corporateName = "";
+  filters.erpCode = "";
+  filters.type = "";
+  filters.erpSellerCode = "";
+  if (page.value !== 1) {
+    page.value = 1;
+  } else {
+    loadCustomers();
+  }
+}
+
+function setPage(nextPage) {
+  page.value = nextPage;
+}
+
+function setPageSize(nextSize) {
+  pageSize.value = Number(nextSize) || 10;
+  page.value = 1;
+}
+
+async function loadCustomers() {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    const params = new URLSearchParams({
+      page: String(page.value),
+      pageSize: String(pageSize.value)
+    });
+    if (filters.corporateName.trim()) params.set("corporateName", filters.corporateName.trim());
+    if (filters.erpCode.trim()) params.set("erpCode", filters.erpCode.trim());
+    if (filters.type.trim()) params.set("type", filters.type.trim());
+    if (filters.erpSellerCode.trim()) params.set("erpSellerCode", filters.erpSellerCode.trim());
+    const response = await apiRequest(`/api/commercial/customers/paged?${params.toString()}`);
+    rows.value = response.items ?? [];
+    totalItems.value = response.totalItems ?? 0;
+    totalPages.value = Math.max(response.totalPages ?? 1, 1);
+  } catch {
+    rows.value = [];
+    totalItems.value = 0;
+    totalPages.value = 1;
+    loadError.value = "Nao foi possivel carregar os clientes.";
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
