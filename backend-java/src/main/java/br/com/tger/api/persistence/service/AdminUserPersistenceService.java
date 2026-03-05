@@ -5,6 +5,8 @@ import br.com.tger.api.dto.admin.AdminUserResponseDto;
 import br.com.tger.api.dto.admin.UpdateUserPermissionsRequestDto;
 import br.com.tger.api.dto.UserDto;
 import br.com.tger.api.dto.common.PagedResponseDto;
+import br.com.tger.api.model.ModuleCode;
+import br.com.tger.api.model.UserProfile;
 import br.com.tger.api.persistence.entity.AppUserEntity;
 import br.com.tger.api.persistence.repository.AppUserRepository;
 import br.com.tger.api.service.AccessControlService;
@@ -85,8 +87,9 @@ public class AdminUserPersistenceService {
         entity.setName(request.name().trim());
         entity.setEmail(request.email().trim());
         entity.setErpCode(request.erpCode() == null ? null : request.erpCode().trim());
+        entity.setLinkedSellerErpCode(trim(request.linkedSellerErpCode()));
         entity.setProfile(request.profile());
-        entity.setModules(request.profile().name().equals("ADMINISTRADOR") ? new ArrayList<>() : new ArrayList<>(request.modules() == null ? List.of() : request.modules()));
+        entity.setModules(normalizeModules(request.profile(), request.modules(), request.linkedSellerErpCode()));
         entity.setActive(true);
         return toDto(repository.save(entity));
     }
@@ -106,11 +109,8 @@ public class AdminUserPersistenceService {
         accessControlService.assertNotOperator(accessControlService.requireUser(authorizationHeader));
         AppUserEntity user = repository.findById(id).orElseThrow();
         user.setProfile(request.profile());
-        user.setModules(
-                request.profile().name().equals("ADMINISTRADOR")
-                        ? new ArrayList<>()
-                        : new ArrayList<>(request.modules() == null ? List.of() : request.modules())
-        );
+        user.setLinkedSellerErpCode(trim(request.linkedSellerErpCode()));
+        user.setModules(normalizeModules(request.profile(), request.modules(), request.linkedSellerErpCode()));
         return toDto(repository.save(user));
     }
 
@@ -139,7 +139,16 @@ public class AdminUserPersistenceService {
     }
 
     public AdminUserResponseDto toDto(AppUserEntity e) {
-        return new AdminUserResponseDto(e.getId(), e.getName(), e.getEmail(), e.getErpCode(), e.getProfile(), e.isActive(), e.getLastPasswordResetAt(), e.getModules());
+        return new AdminUserResponseDto(e.getId(), e.getName(), e.getEmail(), e.getErpCode(), e.getLinkedSellerErpCode(), e.getProfile(), e.isActive(), e.getLastPasswordResetAt(), e.getModules());
+    }
+
+    private List<ModuleCode> normalizeModules(UserProfile profile, List<ModuleCode> modules, String linkedSellerErpCode) {
+        if ("ADMINISTRADOR".equals(profile.name())) return new ArrayList<>();
+        List<ModuleCode> normalized = new ArrayList<>(modules == null ? List.of() : modules);
+        if (trim(linkedSellerErpCode) != null && !normalized.contains(ModuleCode.VENDEDOR)) {
+            normalized.add(ModuleCode.VENDEDOR);
+        }
+        return normalized;
     }
 
     private int normalizePageSize(Integer pageSize) {

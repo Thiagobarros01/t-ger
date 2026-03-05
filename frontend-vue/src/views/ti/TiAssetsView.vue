@@ -72,6 +72,13 @@
         </label>
 
         <label>
+          Condicao do equipamento
+          <select v-model="form.equipmentCondition">
+            <option v-for="condition in equipmentConditions" :key="condition" :value="condition">{{ condition }}</option>
+          </select>
+        </label>
+
+        <label>
           Marca
           <input v-model="form.brand" />
         </label>
@@ -149,8 +156,12 @@
         <h3 style="margin-top: 0">Ativos cadastrados</h3>
         <button type="button" class="btn-soft" @click="openSummaryModal">Resumo rapido</button>
       </div>
-      <div class="panel" style="padding: 10px; margin-bottom: 10px">
-        <div class="form-grid">
+      <div class="filters-toolbar filters-toolbar--enhanced" style="margin-bottom: 10px">
+        <div class="filters-toolbar__head">
+          <strong>Filtros</strong>
+          <span class="muted-inline">Refine por tipo, responsavel e departamento.</span>
+        </div>
+        <div class="filters-grid filters-grid--4">
           <label>
             Filtrar por tipo
             <select v-model="filters.type">
@@ -176,7 +187,7 @@
             </span>
           </label>
           <div class="actions-row" style="align-self: end">
-            <button type="button" @click="clearFilters">Limpar filtros</button>
+            <button type="button" class="btn-soft" @click="clearFilters">Limpar filtros</button>
           </div>
         </div>
       </div>
@@ -200,6 +211,7 @@
               <th>Departamento</th>
               <th>Marca/Modelo</th>
               <th>Status</th>
+              <th>Condicao</th>
               <th>Responsavel</th>
               <th>Termo</th>
               <th>IP</th>
@@ -219,6 +231,7 @@
               <td>
                 <span class="tag" :class="{ 'danger-tag': !asset.active }">{{ asset.status }}</span>
               </td>
+              <td>{{ asset.equipmentCondition || "-" }}</td>
               <td>{{ asset.responsibleUserName || "-" }}</td>
               <td>{{ asset.linkedTermTitle || "-" }}</td>
               <td>{{ asset.ipMode }} - {{ asset.ipAddress || "-" }}</td>
@@ -230,19 +243,25 @@
                 </button>
               </td>
               <td>
-                <div class="actions-row actions-row--compact">
-                  <button type="button" class="btn-action btn-action--edit" @click="editAsset(asset)">
-                    <span class="btn-action__icon">E</span>
-                    <span>Editar</span>
-                  </button>
-                  <button type="button" class="btn-soft" @click="toggleAssetActive(asset)">
-                    {{ asset.active ? "Inativar" : "Reativar" }}
-                  </button>
-                  <button type="button" class="btn-action btn-action--remove" @click="deleteAssetRow(asset)">
-                    <span class="btn-action__icon">X</span>
-                    <span>Remover</span>
-                  </button>
-                </div>
+                <details class="row-actions-menu">
+                  <summary class="row-actions-menu__trigger" aria-label="Abrir acoes">
+                    <span class="row-actions-menu__trigger-icon">
+                      <i></i><i></i><i></i>
+                    </span>
+                  </summary>
+                  <div class="row-actions-menu__panel">
+                    <button type="button" class="menu-action-btn" @click="editAsset(asset)">
+                      <span class="btn-action__icon">E</span>
+                      <span>Editar</span>
+                    </button>
+                    <button v-if="asset.active" type="button" class="menu-action-btn" @click="openReturnModal(asset)">
+                      Devolucao
+                    </button>
+                    <button v-else type="button" class="menu-action-btn" @click="toggleAssetActive(asset)">
+                      Reativar
+                    </button>
+                  </div>
+                </details>
               </td>
             </tr>
           </tbody>
@@ -309,6 +328,12 @@
           <input :value="editingAsset?.status || '-'" disabled />
         </label>
         <label>
+          Condicao do equipamento
+          <select v-model="editAssetForm.equipmentCondition">
+            <option v-for="condition in equipmentConditions" :key="condition" :value="condition">{{ condition }}</option>
+          </select>
+        </label>
+        <label>
           Responsavel atual
           <input :value="editingAsset?.responsibleUserName || 'Sem responsavel'" disabled />
         </label>
@@ -351,6 +376,30 @@
         <div class="actions-row">
           <button type="button" class="btn-soft" @click="closeAssetActions">Cancelar</button>
           <button type="button" @click="confirmAssetRemoval">Remover</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" v-if="returnModalOpen" @click.self="closeReturnModal">
+      <div class="modal-card modal-card--small">
+        <div class="section-head">
+          <div>
+            <h3>Registrar devolucao</h3>
+            <p>Ativo {{ returnAssetTarget?.internalCode }} sera liberado para disponivel.</p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeReturnModal">Fechar</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Condicao do equipamento
+            <select v-model="returnEquipmentCondition">
+              <option v-for="condition in equipmentConditions" :key="condition" :value="condition">{{ condition }}</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions-row" style="margin-top: 10px">
+          <button type="button" class="btn-soft" @click="closeReturnModal">Cancelar</button>
+          <button type="button" class="btn-primary" @click="confirmAssetReturn">Confirmar devolucao</button>
         </div>
       </div>
     </div>
@@ -484,6 +533,7 @@ const { addAsset, updateAsset, removeAsset, ensureLoaded: ensureTiLoaded } = use
 const { state: masterData, ensureLoaded: ensureMasterDataLoaded, addCompany } = useMasterData();
 
 const assetTypes = ["NOTEBOOK", "DESKTOP", "MONITOR", "IMPRESSORA", "ROTEADOR", "CELULAR", "TABLET", "OUTRO"];
+const equipmentConditions = ["NOVO", "USADO", "DANIFICADO", "VELHO"];
 
 const form = reactive({
   company: "",
@@ -497,7 +547,8 @@ const form = reactive({
   detailedDescription: "",
   ipMode: "DHCP",
   ipAddress: "",
-  imei: ""
+  imei: "",
+  equipmentCondition: "USADO"
 });
 
 const filters = reactive({
@@ -536,7 +587,8 @@ const editAssetForm = reactive({
   ipAddress: "",
   imei: "",
   detailedDescription: "",
-  transferHistoryText: ""
+  transferHistoryText: "",
+  equipmentCondition: "USADO"
 });
 
 const extraFieldEntries = ref([]);
@@ -566,6 +618,9 @@ const summary = reactive({
   returned: 0
 });
 const createComputedStatusLabel = computed(() => "DISPONIVEL");
+const returnModalOpen = ref(false);
+const returnAssetTarget = ref(null);
+const returnEquipmentCondition = ref("USADO");
 
 onMounted(() => {
   ensureUsersLoaded();
@@ -652,6 +707,7 @@ function resetForm() {
   form.ipMode = "DHCP";
   form.ipAddress = "";
   form.imei = "";
+  form.equipmentCondition = "USADO";
   form.companyErpCode = "";
   transferHistoryText.value = "";
   extraFieldEntries.value = [];
@@ -694,6 +750,7 @@ async function saveAsset() {
     ipMode: form.ipMode,
     ipAddress: form.ipAddress,
     imei: showImeiField.value ? form.imei : "",
+    equipmentCondition: form.equipmentCondition,
     extraFields
   });
 
@@ -717,6 +774,7 @@ function editAsset(asset) {
   editAssetForm.imei = asset.imei ?? "";
   editAssetForm.detailedDescription = asset.detailedDescription ?? "";
   editAssetForm.transferHistoryText = (asset.transferHistory ?? []).join("\n");
+  editAssetForm.equipmentCondition = asset.equipmentCondition ?? "USADO";
 }
 
 function deleteAssetRow(asset) {
@@ -746,6 +804,7 @@ async function submitAssetEdit() {
     ipMode: editAssetForm.ipMode,
     ipAddress: editAssetForm.ipAddress,
     imei: editAssetForm.imei,
+    equipmentCondition: editAssetForm.equipmentCondition,
     extraFields: base.extraFields ?? {}
   });
   await loadAssets();
@@ -754,14 +813,42 @@ async function submitAssetEdit() {
 
 async function confirmAssetRemoval() {
   if (!assetToRemove.value) return;
-  await removeAsset(assetToRemove.value.id);
-  await loadAssets();
+  const removedId = assetToRemove.value.id;
+  await removeAsset(removedId);
+  rows.value = rows.value.filter((item) => item.id !== removedId);
+  totalItems.value = Math.max(0, totalItems.value - 1);
+  if (rows.value.length === 0 && page.value > 1) {
+    page.value = page.value - 1;
+  } else {
+    await loadAssets();
+  }
   closeAssetActions();
 }
 
+function openReturnModal(asset) {
+  returnAssetTarget.value = asset;
+  returnEquipmentCondition.value = asset?.equipmentCondition ?? "USADO";
+  returnModalOpen.value = true;
+}
+
+function closeReturnModal() {
+  returnModalOpen.value = false;
+  returnAssetTarget.value = null;
+  returnEquipmentCondition.value = "USADO";
+}
+
+async function confirmAssetReturn() {
+  if (!returnAssetTarget.value?.id) return;
+  await apiRequest(`/api/ti/assets/${returnAssetTarget.value.id}/return`, {
+    method: "PATCH",
+    body: JSON.stringify({ equipmentCondition: returnEquipmentCondition.value })
+  });
+  closeReturnModal();
+  await loadAssets();
+}
+
 async function toggleAssetActive(asset) {
-  const endpoint = asset.active ? "inactivate" : "reactivate";
-  await apiRequest(`/api/ti/assets/${asset.id}/${endpoint}`, { method: "PATCH" });
+  await apiRequest(`/api/ti/assets/${asset.id}/reactivate`, { method: "PATCH" });
   await loadAssets();
 }
 

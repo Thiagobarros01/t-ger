@@ -5,6 +5,8 @@ import br.com.tger.api.crm.dto.CreateInteractionRequestDto;
 import br.com.tger.api.crm.dto.CreateTaskRequestDto;
 import br.com.tger.api.crm.dto.InteractionResponseDto;
 import br.com.tger.api.crm.dto.TaskResponseDto;
+import br.com.tger.api.crm.dto.TaskStatusHistoryResponseDto;
+import br.com.tger.api.crm.dto.UpdateTaskStatusRequestDto;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,5 +43,22 @@ public class CrmActivityController {
     @PostMapping("/tasks")
     public TaskResponseDto createTask(@Valid @RequestBody CreateTaskRequestDto request) {
         return service.createTask(request);
+    }
+
+    @PatchMapping("/tasks/{taskId}/status")
+    public TaskResponseDto updateTaskStatus(
+            @PathVariable Long taskId,
+            @Valid @RequestBody UpdateTaskStatusRequestDto request,
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.updateTaskStatus(taskId, request.status(), authorizationHeader);
+    }
+
+    @GetMapping("/tasks/{taskId}/history")
+    public List<TaskStatusHistoryResponseDto> listTaskStatusHistory(
+            @PathVariable Long taskId,
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.listTaskStatusHistory(taskId, authorizationHeader);
     }
 }

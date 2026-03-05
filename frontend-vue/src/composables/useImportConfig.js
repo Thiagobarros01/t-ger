@@ -4,7 +4,9 @@ import { apiRequest } from "../services/api";
 const state = reactive({
   clientes: [],
   produtos: [],
-  loaded: { clientes: false, produtos: false }
+  vendedores: [],
+  historico_vendas: [],
+  loaded: { clientes: false, produtos: false, vendedores: false, historico_vendas: false }
 });
 
 export function useImportConfig() {

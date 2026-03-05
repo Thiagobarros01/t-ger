@@ -46,6 +46,7 @@ export function useSession() {
       method: "POST",
       body: JSON.stringify({
         ...userInput,
+        linkedSellerErpCode: userInput.linkedSellerErpCode?.trim() || null,
         modules: normalizedModules
       })
     });
@@ -64,13 +65,14 @@ export function useSession() {
     return true;
   }
 
-  async function updateUserPermissions(userId, profile, modules) {
+  async function updateUserPermissions(userId, profile, modules, linkedSellerErpCode = "") {
     const normalizedModules = profile === "ADMINISTRADOR" ? [] : [...new Set(modules)];
     const updated = await apiRequest(`/api/admin/users/${userId}/permissions`, {
       method: "PATCH",
       body: JSON.stringify({
         profile,
-        modules: normalizedModules
+        modules: normalizedModules,
+        linkedSellerErpCode: linkedSellerErpCode?.trim() || null
       })
     });
     const idx = state.allUsers.findIndex((item) => item.id === userId);

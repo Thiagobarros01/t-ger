@@ -7,6 +7,7 @@ import br.com.tger.api.dto.TiTermDto;
 import br.com.tger.api.dto.TicketDto;
 import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.dto.ti.TiAssetRequestDto;
+import br.com.tger.api.dto.ti.TiAssetReturnRequestDto;
 import br.com.tger.api.dto.ti.TiTermRequestDto;
 import br.com.tger.api.dto.ti.TicketMessageRequestDto;
 import br.com.tger.api.dto.ti.TicketStatusUpdateRequestDto;
@@ -69,6 +70,14 @@ public class TiPersistenceController {
     @DeleteMapping("/assets/{id}")
     public void deleteAsset(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         service.deleteAsset(id, authorizationHeader);
+    }
+    @PatchMapping("/assets/{id}/return")
+    public TiAssetDto returnAsset(
+            @PathVariable Long id,
+            @Valid @RequestBody TiAssetReturnRequestDto req,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.returnAsset(id, req.equipmentCondition(), authorizationHeader);
     }
     @PatchMapping("/assets/{id}/inactivate")
     public TiAssetDto inactivateAsset(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {

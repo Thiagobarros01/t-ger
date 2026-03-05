@@ -36,6 +36,16 @@ public class CrmCatalogController {
         return service.createStage(request);
     }
 
+    @PutMapping("/stages/{stageId}")
+    public StageResponseDto updateStage(@PathVariable Long stageId, @Valid @RequestBody UpdateStageRequestDto request) {
+        return service.updateStage(stageId, request);
+    }
+
+    @DeleteMapping("/stages/{stageId}")
+    public void deleteStage(@PathVariable Long stageId) {
+        service.deleteStage(stageId);
+    }
+
     @GetMapping("/loss-reasons")
     public List<LossReasonResponseDto> listLossReasons() {
         return service.listLossReasons();

@@ -75,6 +75,22 @@ export function useCommercialData() {
     return result;
   }
 
+  async function bulkUpsertSellers(rows) {
+    const result = await apiRequest("/api/commercial/sellers/bulk-upsert", {
+      method: "POST",
+      body: JSON.stringify(rows)
+    });
+    state.sellers = await apiRequest("/api/commercial/sellers");
+    return result;
+  }
+
+  async function bulkUpsertSalesHistory(rows) {
+    return apiRequest("/api/commercial/sales-history/bulk-upsert", {
+      method: "POST",
+      body: JSON.stringify(rows)
+    });
+  }
+
   async function updateProduct(id, payload) {
     const updated = await apiRequest(`/api/commercial/products/${id}`, {
       method: "PUT",
@@ -133,6 +149,8 @@ export function useCommercialData() {
     updateSeller,
     removeSeller,
     bulkUpsertProducts,
-    bulkUpsertCustomers
+    bulkUpsertCustomers,
+    bulkUpsertSellers,
+    bulkUpsertSalesHistory
   };
 }

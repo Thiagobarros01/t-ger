@@ -24,7 +24,7 @@ public class UserController {
     @GetMapping
     public List<UserDto> list() {
         var persisted = appUserRepository.findAll().stream()
-                .map(entity -> new UserDto(entity.getId(), entity.getName(), entity.getEmail(), entity.getProfile(), entity.getModules()))
+                .map(entity -> new UserDto(entity.getId(), entity.getName(), entity.getEmail(), entity.getLinkedSellerErpCode(), entity.getProfile(), entity.getModules()))
                 .toList();
         return persisted.isEmpty() ? sampleDataService.getUsers() : persisted;
     }

@@ -105,6 +105,25 @@
       <div class="panel">
         <div class="section-head">
           <div>
+            <h3>Parametros globais de CRM</h3>
+            <p>Recompra e resgate usados automaticamente nas oportunidades.</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label v-for="param in globalParams" :key="param.key">
+            {{ param.label }}
+            <input v-model="param.value" />
+            <small class="muted">{{ param.description }}</small>
+          </label>
+          <div class="full actions-row">
+            <button type="button" class="btn-primary" @click="saveGlobalParams">Salvar parametros CRM</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-head">
+          <div>
             <h3>Padrao de parametros globais</h3>
             <p>Centralizar dados comuns aqui evita retrabalho e divergencia entre modulos.</p>
           </div>
@@ -145,6 +164,7 @@ const editingCompany = ref(null);
 const companyToRemove = ref(null);
 const editCompanyForm = reactive({ name: "", erpCode: "" });
 const rows = ref([]);
+const globalParams = ref([]);
 const totalItems = ref(0);
 const totalPages = ref(1);
 const page = ref(1);
@@ -161,6 +181,7 @@ const filters = reactive({
 onMounted(async () => {
   await ensureLoaded();
   await loadCompanies();
+  await loadGlobalParams();
 });
 
 onBeforeUnmount(() => {
@@ -260,5 +281,21 @@ async function loadCompanies() {
   } finally {
     loading.value = false;
   }
+}
+
+async function loadGlobalParams() {
+  try {
+    globalParams.value = await apiRequest("/api/config/global-params");
+  } catch {
+    globalParams.value = [];
+  }
+}
+
+async function saveGlobalParams() {
+  if (!globalParams.value.length) return;
+  globalParams.value = await apiRequest("/api/config/global-params", {
+    method: "PUT",
+    body: JSON.stringify(globalParams.value)
+  });
 }
 </script>

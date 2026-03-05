@@ -2,6 +2,7 @@ package br.com.tger.api.crm.infrastructure.entity;
 
 import br.com.tger.api.crm.domain.BusinessType;
 import br.com.tger.api.crm.domain.DealStatus;
+import br.com.tger.api.crm.domain.OpportunityType;
 import br.com.tger.api.persistence.entity.CompanyEntity;
 import br.com.tger.api.persistence.entity.CustomerEntity;
 import br.com.tger.api.persistence.entity.SellerEntity;
@@ -37,6 +38,10 @@ public class CrmDealEntity {
     @Column(name = "tipo_negocio", nullable = false)
     private BusinessType tipoNegocio;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_oportunidade")
+    private OpportunityType tipoOportunidade = OpportunityType.NOVA;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "pipeline_id", nullable = false)
     private CrmPipelineEntity pipeline;
@@ -60,6 +65,21 @@ public class CrmDealEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "motivo_perda_id")
     private CrmLossReasonEntity motivoPerda;
+
+    @Column(name = "source_deal_id")
+    private Long sourceDealId;
+
+    @Column(name = "source_order_number")
+    private String sourceOrderNumber;
+
+    @Column(name = "source_order_status")
+    private String sourceOrderStatus;
+
+    @Column(name = "source_order_date")
+    private LocalDate sourceOrderDate;
+
+    @Column(name = "source_sync_key", length = 180)
+    private String sourceSyncKey;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -89,6 +109,8 @@ public class CrmDealEntity {
     public void setVendedor(SellerEntity vendedor) { this.vendedor = vendedor; }
     public BusinessType getTipoNegocio() { return tipoNegocio; }
     public void setTipoNegocio(BusinessType tipoNegocio) { this.tipoNegocio = tipoNegocio; }
+    public OpportunityType getTipoOportunidade() { return tipoOportunidade; }
+    public void setTipoOportunidade(OpportunityType tipoOportunidade) { this.tipoOportunidade = tipoOportunidade; }
     public CrmPipelineEntity getPipeline() { return pipeline; }
     public void setPipeline(CrmPipelineEntity pipeline) { this.pipeline = pipeline; }
     public CrmStageEntity getStage() { return stage; }
@@ -103,6 +125,16 @@ public class CrmDealEntity {
     public void setDataPrevistaFechamento(LocalDate dataPrevistaFechamento) { this.dataPrevistaFechamento = dataPrevistaFechamento; }
     public CrmLossReasonEntity getMotivoPerda() { return motivoPerda; }
     public void setMotivoPerda(CrmLossReasonEntity motivoPerda) { this.motivoPerda = motivoPerda; }
+    public Long getSourceDealId() { return sourceDealId; }
+    public void setSourceDealId(Long sourceDealId) { this.sourceDealId = sourceDealId; }
+    public String getSourceOrderNumber() { return sourceOrderNumber; }
+    public void setSourceOrderNumber(String sourceOrderNumber) { this.sourceOrderNumber = sourceOrderNumber; }
+    public String getSourceOrderStatus() { return sourceOrderStatus; }
+    public void setSourceOrderStatus(String sourceOrderStatus) { this.sourceOrderStatus = sourceOrderStatus; }
+    public LocalDate getSourceOrderDate() { return sourceOrderDate; }
+    public void setSourceOrderDate(LocalDate sourceOrderDate) { this.sourceOrderDate = sourceOrderDate; }
+    public String getSourceSyncKey() { return sourceSyncKey; }
+    public void setSourceSyncKey(String sourceSyncKey) { this.sourceSyncKey = sourceSyncKey; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

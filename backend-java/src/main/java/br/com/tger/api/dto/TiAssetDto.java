@@ -2,6 +2,7 @@ package br.com.tger.api.dto;
 
 import br.com.tger.api.model.AssetStatus;
 import br.com.tger.api.model.AssetType;
+import br.com.tger.api.model.EquipmentCondition;
 import br.com.tger.api.model.IpMode;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public record TiAssetDto(
         IpMode ipMode,
         String ipAddress,
         String imei,
+        EquipmentCondition equipmentCondition,
         Map<String, String> extraFields,
         boolean active
 ) {

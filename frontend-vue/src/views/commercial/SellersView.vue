@@ -46,7 +46,11 @@
         <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
 
-      <div class="filters-toolbar">
+      <div class="filters-toolbar filters-toolbar--enhanced">
+        <div class="filters-toolbar__head">
+          <strong>Filtros</strong>
+          <span class="muted-inline">Busque por nome, ERP e e-mail.</span>
+        </div>
         <div class="filters-grid">
           <label>
             Nome
@@ -89,9 +93,15 @@
               <td>{{ seller.email || "-" }}</td>
               <td>{{ seller.phone || "-" }}</td>
               <td>
-                <div class="actions-row">
-                  <button type="button" @click="editSeller(seller)">Editar</button>
-                  <button type="button" @click="deleteSellerRow(seller)">Remover</button>
+                <div class="actions-row actions-row--compact">
+                  <button type="button" class="btn-action btn-action--edit" @click="editSeller(seller)">
+                    <span class="btn-action__icon">E</span>
+                    <span>Editar</span>
+                  </button>
+                  <button type="button" class="btn-action btn-action--remove" @click="deleteSellerRow(seller)">
+                    <span class="btn-action__icon">X</span>
+                    <span>Remover</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -255,9 +265,16 @@ async function submitSellerEdit() {
 
 async function confirmSellerRemoval() {
   if (!sellerToRemove.value) return;
-  await removeSeller(sellerToRemove.value.id);
+  const removedId = sellerToRemove.value.id;
+  await removeSeller(removedId);
+  rows.value = rows.value.filter((item) => item.id !== removedId);
+  totalItems.value = Math.max(0, totalItems.value - 1);
   await ensureLoaded();
-  await loadSellers();
+  if (rows.value.length === 0 && page.value > 1) {
+    page.value = page.value - 1;
+  } else {
+    await loadSellers();
+  }
   closeSellerActions();
 }
 

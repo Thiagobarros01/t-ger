@@ -64,7 +64,26 @@
         </details>
         <RouterLink v-if="hasModule('LOGISTICA')" to="/gestao/logistica" class="nav-module-link">Logistica</RouterLink>
         <RouterLink v-if="hasModule('COMPRAS')" to="/gestao/compras" class="nav-module-link">Compras</RouterLink>
-        <RouterLink v-if="hasModule('VENDEDOR')" to="/gestao/vendedor" class="nav-module-link">Vendedor</RouterLink>
+        <details v-if="hasModule('VENDEDOR')">
+          <summary class="nav-module-summary">
+            <span>Vendedor</span>
+            <span class="nav-caret"></span>
+          </summary>
+          <div class="submodule-list">
+            <RouterLink to="/gestao/vendedor/carteira" class="nav-submodule-link"><span class="submodule-dot"></span>Carteira de Clientes</RouterLink>
+            <details open>
+              <summary class="nav-module-summary" style="margin-left: 6px; font-weight: 500;">
+                <span>CRM Rapido</span>
+                <span class="nav-caret"></span>
+              </summary>
+              <div class="submodule-list" style="padding-left: 16px;">
+                <RouterLink to="/gestao/vendedor/crm/kanban" class="nav-submodule-link"><span class="submodule-dot"></span>Kanban</RouterLink>
+                <RouterLink to="/gestao/vendedor/crm/interacoes" class="nav-submodule-link"><span class="submodule-dot"></span>Interacoes</RouterLink>
+                <RouterLink to="/gestao/vendedor/crm/tarefas" class="nav-submodule-link"><span class="submodule-dot"></span>Tarefas</RouterLink>
+              </div>
+            </details>
+          </div>
+        </details>
         <RouterLink v-if="hasModule('RECEBIMENTO')" to="/gestao/recebimento" class="nav-module-link">Recebimento</RouterLink>
 
         <p class="nav-title nav-title--spaced" v-if="hasModule('CONFIGURACOES')">Configuracoes</p>
@@ -84,6 +103,8 @@
               <div class="submodule-list" style="padding-left: 16px;">
                 <RouterLink to="/configuracoes/importar/clientes" class="nav-submodule-link"><span class="submodule-dot"></span>Importar Clientes</RouterLink>
                 <RouterLink to="/configuracoes/importar/produtos" class="nav-submodule-link"><span class="submodule-dot"></span>Importar Produtos</RouterLink>
+                <RouterLink to="/configuracoes/importar/vendedores" class="nav-submodule-link"><span class="submodule-dot"></span>Importar Vendedores</RouterLink>
+                <RouterLink to="/configuracoes/importar/historico-vendas" class="nav-submodule-link"><span class="submodule-dot"></span>Importar Historico de Vendas</RouterLink>
               </div>
             </details>
           </div>

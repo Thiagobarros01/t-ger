@@ -5,9 +5,11 @@ import br.com.tger.api.dto.UserDto;
 import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.persistence.entity.CustomerEntity;
 import br.com.tger.api.persistence.entity.ProductEntity;
+import br.com.tger.api.persistence.entity.SalesHistoryEntity;
 import br.com.tger.api.persistence.entity.SellerEntity;
 import br.com.tger.api.persistence.repository.CustomerRepository;
 import br.com.tger.api.persistence.repository.ProductRepository;
+import br.com.tger.api.persistence.repository.SalesHistoryRepository;
 import br.com.tger.api.persistence.repository.SellerRepository;
 import br.com.tger.api.service.AccessControlService;
 import org.springframework.data.domain.Page;
@@ -29,17 +31,20 @@ public class CommercialPersistenceService {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
+    private final SalesHistoryRepository salesHistoryRepository;
     private final AccessControlService accessControlService;
 
     public CommercialPersistenceService(
             SellerRepository sellerRepository,
             ProductRepository productRepository,
             CustomerRepository customerRepository,
+            SalesHistoryRepository salesHistoryRepository,
             AccessControlService accessControlService
     ) {
         this.sellerRepository = sellerRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
+        this.salesHistoryRepository = salesHistoryRepository;
         this.accessControlService = accessControlService;
     }
 
@@ -48,7 +53,8 @@ public class CommercialPersistenceService {
         if (!accessControlService.isOperator(user)) {
             return sellerRepository.findAll().stream().map(this::toDto).toList();
         }
-        return sellerRepository.findByEmailIgnoreCase(user.email()).stream().map(this::toDto).toList();
+        SellerEntity ownSeller = resolveOperatorSeller(user);
+        return ownSeller == null ? List.of() : List.of(toDto(ownSeller));
     }
 
     public List<ProductResponseDto> listProducts(String authorizationHeader) {
@@ -128,7 +134,8 @@ public class CommercialPersistenceService {
         Pageable pageable = PageRequest.of(safePage - 1, safePageSize, Sort.by(Sort.Direction.DESC, "id"));
 
         if (accessControlService.isOperator(user)) {
-            List<SellerResponseDto> own = sellerRepository.findByEmailIgnoreCase(user.email()).stream().map(this::toDto).toList();
+            SellerEntity ownSeller = resolveOperatorSeller(user);
+            List<SellerResponseDto> own = ownSeller == null ? List.of() : List.of(toDto(ownSeller));
             return new PagedResponseDto<>(own, 1, safePageSize, own.size(), own.isEmpty() ? 0 : 1);
         }
 
@@ -203,6 +210,21 @@ public class CommercialPersistenceService {
         );
     }
 
+    public List<CustomerResponseDto> listCustomersByIds(List<Long> ids, String authorizationHeader) {
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        if (ids == null || ids.isEmpty()) return List.of();
+        List<CustomerEntity> customers = customerRepository.findAllById(ids);
+        if (accessControlService.isOperator(user)) {
+            SellerEntity ownSeller = resolveOperatorSeller(user);
+            String ownErp = ownSeller == null ? null : trim(ownSeller.getErpCode());
+            if (ownErp == null) return List.of();
+            customers = customers.stream()
+                    .filter(item -> item.getErpSellerCode() != null && ownErp.equalsIgnoreCase(item.getErpSellerCode()))
+                    .toList();
+        }
+        return customers.stream().map(this::toDto).toList();
+    }
+
     public SellerResponseDto createSeller(SellerRequestDto req, String authorizationHeader) {
         assertNotOperator(authorizationHeader);
         SellerEntity e = new SellerEntity();
@@ -275,12 +297,60 @@ public class CommercialPersistenceService {
     }
 
     @Transactional
+    public BulkUpsertResultDto bulkUpsertSellers(List<SellerRequestDto> rows, String authorizationHeader) {
+        assertNotOperator(authorizationHeader);
+        int created = 0, updated = 0, errors = 0;
+        List<BulkUpsertErrorDto> errorDetails = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            SellerRequestDto row = rows.get(i);
+            try {
+                String erp = trim(row.erpCode());
+                String name = trim(row.name());
+                if (erp == null || name == null) {
+                    errors++;
+                    addError(errorDetails, i + 1, "Codigo ERP e nome sao obrigatorios");
+                    continue;
+                }
+
+                var existing = sellerRepository.findByErpCodeIgnoreCase(erp).orElse(null);
+                if (existing != null) {
+                    existing.setName(name);
+                    existing.setEmail(trim(row.email()));
+                    existing.setPhone(trim(row.phone()));
+                    sellerRepository.save(existing);
+                    updated++;
+                    continue;
+                }
+
+                SellerEntity e = new SellerEntity();
+                e.setCode("VDR-" + String.format("%05d", sellerRepository.count() + created + 1));
+                e.setErpCode(erp);
+                e.setName(name);
+                e.setEmail(trim(row.email()));
+                e.setPhone(trim(row.phone()));
+                sellerRepository.save(e);
+                created++;
+            } catch (Exception ex) {
+                errors++;
+                addError(errorDetails, i + 1, normalizeExceptionMessage(ex));
+            }
+        }
+        return new BulkUpsertResultDto(rows.size(), created, updated, errors, errorDetails);
+    }
+
+    @Transactional
     public BulkUpsertResultDto bulkUpsertProducts(List<ProductRequestDto> rows, String authorizationHeader) {
         assertNotOperator(authorizationHeader);
         int created = 0, updated = 0, errors = 0;
-        for (ProductRequestDto row : rows) {
+        List<BulkUpsertErrorDto> errorDetails = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            ProductRequestDto row = rows.get(i);
             try {
-                if (row.description() == null || row.description().isBlank()) { errors++; continue; }
+                if (row.description() == null || row.description().isBlank()) {
+                    errors++;
+                    addError(errorDetails, i + 1, "Descricao obrigatoria");
+                    continue;
+                }
                 String erp = trim(row.erpCode());
                 if (erp != null) {
                     var existing = productRepository.findByErpCodeIgnoreCase(erp).orElse(null);
@@ -291,20 +361,33 @@ public class CommercialPersistenceService {
                 e.setCode("PRD-" + String.format("%05d", productRepository.count() + created + 1));
                 productRepository.save(e);
                 created++;
-            } catch (Exception ex) { errors++; }
+            } catch (Exception ex) {
+                errors++;
+                addError(errorDetails, i + 1, normalizeExceptionMessage(ex));
+            }
         }
-        return new BulkUpsertResultDto(rows.size(), created, updated, errors);
+        return new BulkUpsertResultDto(rows.size(), created, updated, errors, errorDetails);
     }
 
     @Transactional
     public BulkUpsertResultDto bulkUpsertCustomers(List<CustomerRequestDto> rows, String authorizationHeader) {
         assertNotOperator(authorizationHeader);
         int created = 0, updated = 0, errors = 0;
-        for (CustomerRequestDto row : rows) {
+        List<BulkUpsertErrorDto> errorDetails = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            CustomerRequestDto row = rows.get(i);
             try {
-                if (row.corporateName() == null || row.corporateName().isBlank()) { errors++; continue; }
+                if (row.corporateName() == null || row.corporateName().isBlank()) {
+                    errors++;
+                    addError(errorDetails, i + 1, "Razao social obrigatoria");
+                    continue;
+                }
                 String type = trim(row.type());
-                if (type == null || (!type.equalsIgnoreCase("PJ") && !type.equalsIgnoreCase("PF"))) { errors++; continue; }
+                if (type == null || (!type.equalsIgnoreCase("PJ") && !type.equalsIgnoreCase("PF"))) {
+                    errors++;
+                    addError(errorDetails, i + 1, "Tipo deve ser PJ ou PF");
+                    continue;
+                }
                 String erp = trim(row.erpCode());
                 if (erp != null) {
                     var existing = customerRepository.findByErpCodeIgnoreCase(erp).orElse(null);
@@ -315,9 +398,62 @@ public class CommercialPersistenceService {
                 e.setCode("CLI-" + String.format("%05d", customerRepository.count() + created + 1));
                 customerRepository.save(e);
                 created++;
-            } catch (Exception ex) { errors++; }
+            } catch (Exception ex) {
+                errors++;
+                addError(errorDetails, i + 1, normalizeExceptionMessage(ex));
+            }
         }
-        return new BulkUpsertResultDto(rows.size(), created, updated, errors);
+        return new BulkUpsertResultDto(rows.size(), created, updated, errors, errorDetails);
+    }
+
+    @Transactional
+    public BulkUpsertResultDto bulkUpsertSalesHistory(List<SalesHistoryImportRequestDto> rows, String authorizationHeader) {
+        assertNotOperator(authorizationHeader);
+        int created = 0, updated = 0, errors = 0;
+        List<BulkUpsertErrorDto> errorDetails = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            SalesHistoryImportRequestDto row = rows.get(i);
+            try {
+                String key = buildSalesExternalKey(row.orderNumber(), row.nfNumber(), row.sequence());
+                if (key == null) {
+                    errors++;
+                    addError(errorDetails, i + 1, "Numero do pedido ou NF obrigatorio");
+                    continue;
+                }
+
+                SalesHistoryEntity entity = salesHistoryRepository.findByExternalKey(key).orElse(null);
+                if (entity == null) {
+                    entity = new SalesHistoryEntity();
+                    entity.setExternalKey(key);
+                    created++;
+                } else {
+                    updated++;
+                }
+
+                entity.setCompanyErpCode(trim(row.companyErpCode()));
+                entity.setOrderNumber(trim(row.orderNumber()));
+                entity.setSequence(trim(row.sequence()));
+                entity.setNfNumber(trim(row.nfNumber()));
+                entity.setOrderDate(row.orderDate());
+                entity.setBilledDate(row.billedDate());
+                entity.setReturnedDate(row.returnedDate());
+                entity.setCanceledDate(row.canceledDate());
+                entity.setOrderStatusCode(trim(row.orderStatusCode()));
+                entity.setCustomerErpCode(trim(row.customerErpCode()));
+                entity.setSellerErpCode(trim(row.sellerErpCode()));
+                entity.setProductErpCode(trim(row.productErpCode()));
+                entity.setQuantity(row.quantity());
+                entity.setNetValue(row.netValue());
+                entity.setTotalNfValue(row.totalNfValue());
+                entity.setCanceledValue(row.canceledValue());
+                entity.setReturnedValue(row.returnedValue());
+                salesHistoryRepository.save(entity);
+            } catch (Exception ex) {
+                errors++;
+                addError(errorDetails, i + 1, normalizeExceptionMessage(ex));
+            }
+        }
+        return new BulkUpsertResultDto(rows.size(), created, updated, errors, errorDetails);
     }
 
     private void apply(ProductRequestDto req, ProductEntity e) {
@@ -349,6 +485,27 @@ public class CommercialPersistenceService {
 
     private String trim(String v) { return v == null || v.isBlank() ? null : v.trim(); }
 
+    private void addError(List<BulkUpsertErrorDto> errors, int row, String message) {
+        if (errors.size() >= 1000) return;
+        errors.add(new BulkUpsertErrorDto(row, message));
+    }
+
+    private String normalizeExceptionMessage(Exception ex) {
+        String msg = ex.getMessage();
+        if (msg == null || msg.isBlank()) return "Erro ao processar registro";
+        String compact = msg.replace('\n', ' ').replace('\r', ' ').trim();
+        return compact.length() > 180 ? compact.substring(0, 180) + "..." : compact;
+    }
+
+    private String buildSalesExternalKey(String orderNumber, String nfNumber, String sequence) {
+        String order = trim(orderNumber);
+        String nf = trim(nfNumber);
+        String seq = trim(sequence);
+        if (order != null) return "PED:" + order + ":" + (seq == null ? "0" : seq);
+        if (nf != null) return "NF:" + nf + ":" + (seq == null ? "0" : seq);
+        return null;
+    }
+
     private int normalizePageSize(Integer pageSize) {
         if (pageSize == null) return 10;
         if (pageSize < 1) return 10;
@@ -356,7 +513,12 @@ public class CommercialPersistenceService {
     }
 
     private SellerEntity resolveOperatorSeller(UserDto user) {
-        if (user == null || user.email() == null || user.email().isBlank()) return null;
+        if (user == null) return null;
+        String linkedSellerErp = trim(user.linkedSellerErpCode());
+        if (linkedSellerErp != null) {
+            return sellerRepository.findByErpCodeIgnoreCase(linkedSellerErp).orElse(null);
+        }
+        if (user.email() == null || user.email().isBlank()) return null;
         return sellerRepository.findByEmailIgnoreCase(user.email()).orElse(null);
     }
 

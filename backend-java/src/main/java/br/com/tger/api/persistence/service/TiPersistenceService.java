@@ -12,6 +12,7 @@ import br.com.tger.api.dto.ti.TiAssetRequestDto;
 import br.com.tger.api.dto.ti.TiTermRequestDto;
 import br.com.tger.api.dto.ti.TicketMessageRequestDto;
 import br.com.tger.api.model.AssetStatus;
+import br.com.tger.api.model.EquipmentCondition;
 import br.com.tger.api.model.IpMode;
 import br.com.tger.api.persistence.entity.TiAssetEntity;
 import br.com.tger.api.persistence.entity.TiAssetHistoryEntity;
@@ -358,7 +359,7 @@ public class TiPersistenceService {
         UserDto user = accessControlService.requireUser(authorizationHeader);
         assertOperatorOwnsTerm(user, e);
         TiTermSnapshot previous = TiTermSnapshot.from(e);
-        e.setStatus("Inativo");
+        e.setStatus("Revogado");
         e.setActive(false);
         TiTermEntity saved = termRepository.save(e);
         syncAssetByTermChange(previous, saved, user);
@@ -407,12 +408,14 @@ public class TiPersistenceService {
         return toDto(saved);
     }
 
+    @Transactional
     public void deleteAsset(Long id, String authorizationHeader) {
         UserDto user = accessControlService.requireUser(authorizationHeader);
+        TiAssetEntity asset = assetRepository.findById(id).orElseThrow();
         if (accessControlService.isOperator(user)) {
-            TiAssetEntity asset = assetRepository.findById(id).orElseThrow();
             assertOperatorOwnsAsset(user, asset);
         }
+        assetHistoryRepository.deleteByAsset_Id(asset.getId());
         assetRepository.deleteById(id);
     }
 
@@ -423,6 +426,41 @@ public class TiPersistenceService {
         assertOperatorOwnsAsset(user, asset);
         asset.setActive(false);
         return toDto(assetRepository.save(asset));
+    }
+
+    @Transactional
+    public TiAssetDto returnAsset(Long id, EquipmentCondition equipmentCondition, String authorizationHeader) {
+        TiAssetEntity asset = assetRepository.findById(id).orElseThrow();
+        UserDto user = accessControlService.requireUser(authorizationHeader);
+        assertOperatorOwnsAsset(user, asset);
+
+        Long prevResponsibleUserId = asset.getResponsibleUserId();
+        String prevResponsibleUserName = asset.getResponsibleUserName();
+        String prevStatus = asset.getStatus() == null ? null : asset.getStatus().name();
+        Long prevTermId = asset.getLinkedTermId();
+        String prevTermTitle = asset.getLinkedTermTitle();
+        if (prevTermId != null) {
+            TiTermEntity linkedTerm = termRepository.findById(prevTermId).orElse(null);
+            if (linkedTerm != null) {
+                linkedTerm.setStatus("Revogado");
+                linkedTerm.setActive(false);
+                termRepository.save(linkedTerm);
+            }
+        }
+
+        asset.setResponsibleUserId(null);
+        asset.setResponsibleUserName(null);
+        asset.setLinkedTermId(null);
+        asset.setLinkedTermTitle(null);
+        asset.setStatus(AssetStatus.DISPONIVEL);
+        asset.setActive(true);
+        asset.setEquipmentCondition(equipmentCondition == null ? EquipmentCondition.USADO : equipmentCondition);
+
+        TiAssetEntity saved = assetRepository.save(asset);
+        if (changedTrackedFields(saved, prevResponsibleUserId, prevResponsibleUserName, prevStatus, prevTermId, prevTermTitle)) {
+            createAssetHistory(saved, prevResponsibleUserId, prevResponsibleUserName, prevStatus, prevTermId, prevTermTitle, user);
+        }
+        return toDto(saved);
     }
 
     @Transactional
@@ -466,6 +504,7 @@ public class TiPersistenceService {
         e.setIpMode(req.ipMode() == null ? IpMode.DHCP : req.ipMode());
         e.setIpAddress(trim(req.ipAddress()));
         e.setImei(trim(req.imei()));
+        e.setEquipmentCondition(req.equipmentCondition() == null ? EquipmentCondition.USADO : req.equipmentCondition());
         e.setExtraFieldsJson(writeJson(req.extraFields() == null ? Map.of() : req.extraFields()));
     }
 
@@ -496,7 +535,7 @@ public class TiPersistenceService {
         }
         e.setStartDate(req.startDate() == null || req.startDate().isBlank() ? LocalDate.now().toString() : req.startDate());
         e.setStatus(normalizedStatus);
-        e.setActive(!normalizedStatus.equalsIgnoreCase("Inativo"));
+        e.setActive(isTermActive(normalizedStatus));
         e.setDocumentPath(trim(req.documentPath()));
     }
 
@@ -568,6 +607,7 @@ public class TiPersistenceService {
         if (value.equalsIgnoreCase("ativo")) return "Ativo";
         if (value.equalsIgnoreCase("concluido")) return "Concluido";
         if (value.equalsIgnoreCase("inativo")) return "Inativo";
+        if (value.equalsIgnoreCase("revogado")) return "Revogado";
         if (value.equalsIgnoreCase("devolvido")) return "Devolvido";
         return value;
     }
@@ -711,18 +751,8 @@ public class TiPersistenceService {
     }
 
     private String nextAssetCode() {
-        long next = assetRepository.findTopByOrderByIdDesc()
-                .map(TiAssetEntity::getInternalCode)
-                .map(this::extractAssetSeq)
-                .orElse(0L) + 1L;
+        long next = assetRepository.findMaxInternalCodeSequence() + 1L;
         return "TI-" + String.format("%04d", next);
-    }
-
-    private long extractAssetSeq(String code) {
-        if (code == null) return 0L;
-        String digits = code.replaceAll("\\D+", "");
-        if (digits.isBlank()) return 0L;
-        try { return Long.parseLong(digits); } catch (NumberFormatException ex) { return 0L; }
     }
 
     private String trim(String value) {
@@ -817,6 +847,7 @@ public class TiPersistenceService {
                 e.getIpMode(),
                 e.getIpAddress(),
                 e.getImei(),
+                e.getEquipmentCondition() == null ? EquipmentCondition.USADO : e.getEquipmentCondition(),
                 extra,
                 e.isActive()
         );

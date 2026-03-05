@@ -65,7 +65,11 @@
         <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
 
-      <div class="filters-toolbar">
+      <div class="filters-toolbar filters-toolbar--enhanced">
+        <div class="filters-toolbar__head">
+          <strong>Filtros</strong>
+          <span class="muted-inline">Busque por razao social, ERP, tipo e vendedor.</span>
+        </div>
         <div class="filters-grid">
           <label>
             Razao social
@@ -125,9 +129,15 @@
               <td>{{ customer.phone || "-" }}</td>
               <td>{{ customer.erpSellerCode || "-" }}</td>
               <td>
-                <div class="actions-row">
-                  <button type="button" @click="editCustomer(customer)">Editar</button>
-                  <button type="button" @click="deleteCustomerRow(customer)">Remover</button>
+                <div class="actions-row actions-row--compact">
+                  <button type="button" class="btn-action btn-action--edit" @click="editCustomer(customer)">
+                    <span class="btn-action__icon">E</span>
+                    <span>Editar</span>
+                  </button>
+                  <button type="button" class="btn-action btn-action--remove" @click="deleteCustomerRow(customer)">
+                    <span class="btn-action__icon">X</span>
+                    <span>Remover</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -327,8 +337,15 @@ async function submitCustomerEdit() {
 
 async function confirmCustomerRemoval() {
   if (!customerToRemove.value) return;
-  await removeCustomer(customerToRemove.value.id);
-  await loadCustomers();
+  const removedId = customerToRemove.value.id;
+  await removeCustomer(removedId);
+  rows.value = rows.value.filter((item) => item.id !== removedId);
+  totalItems.value = Math.max(0, totalItems.value - 1);
+  if (rows.value.length === 0 && page.value > 1) {
+    page.value = page.value - 1;
+  } else {
+    await loadCustomers();
+  }
   closeCustomerActions();
 }
 

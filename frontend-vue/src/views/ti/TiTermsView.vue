@@ -77,6 +77,7 @@
             <option value="Ativo">Ativo</option>
             <option value="Devolvido">Devolvido</option>
             <option value="Concluido">Concluido</option>
+            <option value="Revogado">Revogado</option>
           </select>
         </label>
         <label>
@@ -171,10 +172,16 @@
               <td><span class="tag" :class="{ 'danger-tag': term.status !== 'Ativo' }">{{ term.status }}</span></td>
               <td><code>{{ term.documentPath || "-" }}</code></td>
               <td>
-                <div class="actions-row">
-                  <button type="button" @click="editTerm(term)">Editar</button>
-                  <button type="button" class="btn-soft" @click="inactivateTermRow(term)" :disabled="term.status === 'Inativo'">Inativar</button>
-                  <button type="button" @click="deleteTermRow(term)">Remover</button>
+                <div class="actions-row actions-row--compact">
+                  <button type="button" class="btn-action btn-action--edit" @click="editTerm(term)">
+                    <span class="btn-action__icon">E</span>
+                    <span>Editar</span>
+                  </button>
+                  <button type="button" class="btn-soft" @click="inactivateTermRow(term)" :disabled="term.status === 'Revogado'">Revogar</button>
+                  <button type="button" class="btn-action btn-action--remove" @click="deleteTermRow(term)">
+                    <span class="btn-action__icon">X</span>
+                    <span>Remover</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -231,6 +238,7 @@
             <option value="Devolvido">Devolvido</option>
             <option value="Concluido">Concluido</option>
             <option value="Inativo">Inativo</option>
+            <option value="Revogado">Revogado</option>
           </select>
         </label>
         <label class="full">
@@ -417,9 +425,16 @@ async function inactivateTermRow(term) {
 
 async function confirmTermRemoval() {
   if (!termToRemove.value) return;
-  await removeTerm(termToRemove.value.id);
+  const removedId = termToRemove.value.id;
+  await removeTerm(removedId);
+  rows.value = rows.value.filter((item) => item.id !== removedId);
+  totalItems.value = Math.max(0, totalItems.value - 1);
   await loadAssetOptions();
-  await loadTerms();
+  if (rows.value.length === 0 && page.value > 1) {
+    page.value = page.value - 1;
+  } else {
+    await loadTerms();
+  }
   closeTermActions();
 }
 

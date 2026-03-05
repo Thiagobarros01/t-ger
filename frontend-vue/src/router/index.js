@@ -35,7 +35,11 @@ const routes = [
       { path: "gestao/comercial/crm/tarefas", name: "comercial-crm-tarefas", component: CrmTasksView, meta: { moduleCode: "COMERCIAL" } },
       { path: "gestao/logistica", name: "logistica", component: ModulePlaceholderView, props: { moduleLabel: "Gestao da Logistica" }, meta: { moduleCode: "LOGISTICA" } },
       { path: "gestao/compras", name: "compras", component: ModulePlaceholderView, props: { moduleLabel: "Gestao de Compras" }, meta: { moduleCode: "COMPRAS" } },
-      { path: "gestao/vendedor", name: "vendedor", component: ModulePlaceholderView, props: { moduleLabel: "Gestao do Vendedor" }, meta: { moduleCode: "VENDEDOR" } },
+      { path: "gestao/vendedor", name: "vendedor", redirect: "/gestao/vendedor/carteira", meta: { moduleCode: "VENDEDOR" } },
+      { path: "gestao/vendedor/carteira", name: "vendedor-carteira", component: CustomersView, meta: { moduleCode: "VENDEDOR" } },
+      { path: "gestao/vendedor/crm/kanban", name: "vendedor-crm-kanban", component: CrmKanbanView, meta: { moduleCode: "VENDEDOR" } },
+      { path: "gestao/vendedor/crm/interacoes", name: "vendedor-crm-interacoes", component: CrmInteractionsView, meta: { moduleCode: "VENDEDOR" } },
+      { path: "gestao/vendedor/crm/tarefas", name: "vendedor-crm-tarefas", component: CrmTasksView, meta: { moduleCode: "VENDEDOR" } },
       { path: "gestao/recebimento", name: "recebimento", component: ModulePlaceholderView, props: { moduleLabel: "Gestao do Recebimento" }, meta: { moduleCode: "RECEBIMENTO" } },
       { path: "gestao/ti/ativos", name: "ti-ativos", component: TiAssetsView, meta: { moduleCode: "TI" } },
       { path: "gestao/ti/termos-contratos", name: "ti-termos", component: TiTermsView, meta: { moduleCode: "TI" } },
@@ -43,7 +47,9 @@ const routes = [
       { path: "configuracoes/usuarios", name: "config-users", component: UsersConfigView, meta: { moduleCode: "CONFIGURACOES" } },
       { path: "configuracoes/parametros", name: "config-params", component: ParametersConfigView, meta: { moduleCode: "CONFIGURACOES" } },
       { path: "configuracoes/importar/clientes", name: "config-import-clientes", component: DataImportView, props: { entity: "clientes" }, meta: { moduleCode: "CONFIGURACOES" } },
-      { path: "configuracoes/importar/produtos", name: "config-import-produtos", component: DataImportView, props: { entity: "produtos" }, meta: { moduleCode: "CONFIGURACOES" } }
+      { path: "configuracoes/importar/produtos", name: "config-import-produtos", component: DataImportView, props: { entity: "produtos" }, meta: { moduleCode: "CONFIGURACOES" } },
+      { path: "configuracoes/importar/vendedores", name: "config-import-vendedores", component: DataImportView, props: { entity: "vendedores" }, meta: { moduleCode: "CONFIGURACOES" } },
+      { path: "configuracoes/importar/historico-vendas", name: "config-import-historico-vendas", component: DataImportView, props: { entity: "historico_vendas" }, meta: { moduleCode: "CONFIGURACOES" } }
     ]
   }
 ];

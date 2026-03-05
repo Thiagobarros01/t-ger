@@ -35,6 +35,8 @@ public class AppUserEntity {
 
     @Column(name = "erp_code")
     private String erpCode;
+    @Column(name = "linked_seller_erp_code")
+    private String linkedSellerErpCode;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -60,6 +62,8 @@ public class AppUserEntity {
     public void setEmail(String email) { this.email = email; }
     public String getErpCode() { return erpCode; }
     public void setErpCode(String erpCode) { this.erpCode = erpCode; }
+    public String getLinkedSellerErpCode() { return linkedSellerErpCode; }
+    public void setLinkedSellerErpCode(String linkedSellerErpCode) { this.linkedSellerErpCode = linkedSellerErpCode; }
     public UserProfile getProfile() { return profile; }
     public void setProfile(UserProfile profile) { this.profile = profile; }
     public boolean isActive() { return active; }

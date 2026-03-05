@@ -30,6 +30,15 @@
           </select>
         </label>
         <label>
+          Vinculo vendedor (ERP)
+          <select v-model="form.linkedSellerErpCode" :disabled="sellerOptions.length === 0">
+            <option value="">Sem vinculo</option>
+            <option v-for="seller in sellerOptions" :key="seller.id" :value="seller.erpCode">
+              {{ seller.erpCode }} - {{ seller.name }}
+            </option>
+          </select>
+        </label>
+        <label>
           Modulos permitidos
           <select multiple v-model="form.modules" :disabled="form.profile === 'ADMINISTRADOR'" style="min-height: 110px">
             <option v-for="module in assignableModules" :key="module.code" :value="module.code">
@@ -104,6 +113,15 @@
             </select>
           </label>
           <label>
+            Vinculo vendedor (ERP)
+            <select v-model="editPermissions.linkedSellerErpCode" :disabled="!selectedUser.active || sellerOptions.length === 0">
+              <option value="">Sem vinculo</option>
+              <option v-for="seller in sellerOptions" :key="seller.id" :value="seller.erpCode">
+                {{ seller.erpCode }} - {{ seller.name }}
+              </option>
+            </select>
+          </label>
+          <label>
             Modulos permitidos
             <select
               multiple
@@ -136,6 +154,7 @@
               <th>Nome</th>
               <th>E-mail</th>
               <th>Codigo ERP</th>
+              <th>Vendedor ERP</th>
               <th>Perfil</th>
               <th>Status</th>
               <th>Modulos</th>
@@ -148,6 +167,7 @@
               <td>{{ user.name }}</td>
               <td>{{ user.email }}</td>
               <td>{{ user.erpCode || "-" }}</td>
+              <td>{{ user.linkedSellerErpCode || "-" }}</td>
               <td><span class="tag">{{ user.profile }}</span></td>
               <td>
                 <span class="tag" :class="{ 'danger-tag': !user.active }">{{ user.active ? "Ativo" : "Inativo" }}</span>
@@ -186,6 +206,7 @@ import { apiRequest } from "../../services/api";
 
 const { addUser, updateUserEmail, updateUserPermissions, resetUserPassword, deactivateUser, reactivateUser } = useSession();
 const rows = ref([]);
+const sellerOptions = ref([]);
 const totalItems = ref(0);
 const totalPages = ref(1);
 const page = ref(1);
@@ -207,6 +228,7 @@ const form = reactive({
   name: "",
   email: "",
   erpCode: "",
+  linkedSellerErpCode: "",
   profile: "OPERADOR",
   modules: ["TI"]
 });
@@ -214,7 +236,8 @@ const selectedUserId = ref(null);
 const editEmailValue = ref("");
 const editPermissions = reactive({
   profile: "OPERADOR",
-  modules: []
+  modules: [],
+  linkedSellerErpCode: ""
 });
 const actionMessage = ref("");
 
@@ -237,6 +260,7 @@ watch(
 );
 
 onMounted(() => {
+  loadSellerOptions();
   loadUsers();
 });
 
@@ -265,6 +289,7 @@ async function submitUser() {
     name: form.name.trim(),
     email: form.email.trim(),
     erpCode: form.erpCode.trim(),
+    linkedSellerErpCode: form.linkedSellerErpCode,
     profile: form.profile,
     modules: form.profile === "ADMINISTRADOR" ? [] : [...form.modules]
   });
@@ -272,6 +297,7 @@ async function submitUser() {
   form.name = "";
   form.email = "";
   form.erpCode = "";
+  form.linkedSellerErpCode = "";
   form.profile = "OPERADOR";
   form.modules = ["TI"];
   await loadUsers();
@@ -282,6 +308,7 @@ function selectUser(user) {
   editEmailValue.value = user.email;
   editPermissions.profile = user.profile;
   editPermissions.modules = [...(user.modules ?? [])];
+  editPermissions.linkedSellerErpCode = user.linkedSellerErpCode ?? "";
   actionMessage.value = "";
 }
 
@@ -295,7 +322,7 @@ async function saveUserEmail() {
 
 async function saveUserPermissions() {
   if (!selectedUser.value) return;
-  await updateUserPermissions(selectedUser.value.id, editPermissions.profile, editPermissions.modules);
+  await updateUserPermissions(selectedUser.value.id, editPermissions.profile, editPermissions.modules, editPermissions.linkedSellerErpCode);
   actionMessage.value = "Permissoes atualizadas com sucesso.";
   await loadUsers();
 }
@@ -374,6 +401,14 @@ async function loadUsers() {
     loadError.value = "Nao foi possivel carregar usuarios.";
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadSellerOptions() {
+  try {
+    sellerOptions.value = await apiRequest("/api/commercial/sellers");
+  } catch {
+    sellerOptions.value = [];
   }
 }
 </script>

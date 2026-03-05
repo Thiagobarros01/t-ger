@@ -8,6 +8,7 @@ import br.com.tger.api.dto.TicketMessageDto;
 import br.com.tger.api.dto.UserDto;
 import br.com.tger.api.model.AssetStatus;
 import br.com.tger.api.model.AssetType;
+import br.com.tger.api.model.EquipmentCondition;
 import br.com.tger.api.model.IpMode;
 import br.com.tger.api.model.ModuleCode;
 import br.com.tger.api.model.TermType;
@@ -40,10 +41,10 @@ public class SampleDataService {
 
     public List<UserDto> getUsers() {
         return List.of(
-                new UserDto(1L, "Thiago Admin", "thiago@tger.local", UserProfile.ADMINISTRADOR, List.of()),
-                new UserDto(2L, "Marina TI", "marina.ti@tger.local", UserProfile.GESTOR, List.of(ModuleCode.TI)),
-                new UserDto(3L, "Joao Suporte", "joao.suporte@tger.local", UserProfile.OPERADOR, List.of(ModuleCode.TI)),
-                new UserDto(4L, "Ana Financeiro", "ana.fin@tger.local", UserProfile.GESTOR, List.of(ModuleCode.FINANCEIRO))
+                new UserDto(1L, "Thiago Admin", "thiago@tger.local", null, UserProfile.ADMINISTRADOR, List.of()),
+                new UserDto(2L, "Marina TI", "marina.ti@tger.local", null, UserProfile.GESTOR, List.of(ModuleCode.TI)),
+                new UserDto(3L, "Joao Suporte", "joao.suporte@tger.local", null, UserProfile.OPERADOR, List.of(ModuleCode.TI)),
+                new UserDto(4L, "Ana Financeiro", "ana.fin@tger.local", null, UserProfile.GESTOR, List.of(ModuleCode.FINANCEIRO))
         );
     }
 
@@ -78,6 +79,7 @@ public class SampleDataService {
                         IpMode.DHCP,
                         "192.168.0.45",
                         null,
+                        EquipmentCondition.USADO,
                         Map.of("Sistema Operacional", "Windows 11 Pro"),
                         true
                 ),
@@ -102,6 +104,7 @@ public class SampleDataService {
                         IpMode.ESTATICO,
                         "10.0.0.88",
                         "359999999999999",
+                        EquipmentCondition.USADO,
                         Map.of("Plano", "Corporativo 20GB"),
                         true
                 )

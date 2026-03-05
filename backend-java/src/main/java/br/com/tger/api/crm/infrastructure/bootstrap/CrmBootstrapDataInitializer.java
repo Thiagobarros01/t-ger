@@ -11,6 +11,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
+
 @Configuration
 public class CrmBootstrapDataInitializer {
 
@@ -21,30 +23,26 @@ public class CrmBootstrapDataInitializer {
             CrmLossReasonRepository lossReasonRepository
     ) {
         return args -> {
-            if (pipelineRepository.count() == 0) {
-                CrmPipelineEntity b2c = new CrmPipelineEntity();
-                b2c.setNome("Pipeline B2C");
-                b2c.setTipoNegocio(BusinessType.B2C);
-                b2c.setAtivo(true);
-                b2c = pipelineRepository.save(b2c);
+            CrmPipelineEntity b2c = upsertPipeline(pipelineRepository, "Pipeline B2C", BusinessType.B2C);
+            CrmPipelineEntity b2b = upsertPipeline(pipelineRepository, "Pipeline B2B", BusinessType.B2B);
 
-                CrmPipelineEntity b2b = new CrmPipelineEntity();
-                b2b.setNome("Pipeline B2B");
-                b2b.setTipoNegocio(BusinessType.B2B);
-                b2b.setAtivo(true);
-                b2b = pipelineRepository.save(b2b);
+            // Funil operacional padrão para sincronizacao ERP:
+            // Prospeccao -> Em Negociacao -> Venda Fechada -> Recorrente -> Venda Perdida
+            syncStages(stageRepository, b2c, List.of(
+                    stageDef("Prospeccao", 1, false, false),
+                    stageDef("Em Negociacao", 2, false, false),
+                    stageDef("Venda Fechada", 3, true, false),
+                    stageDef("Recorrente", 4, false, false),
+                    stageDef("Venda Perdida", 5, false, true)
+            ));
 
-                stageRepository.save(stage(b2c, "Lead", 1, false, false));
-                stageRepository.save(stage(b2c, "Qualificacao", 2, false, false));
-                stageRepository.save(stage(b2c, "Ganho", 3, true, false));
-                stageRepository.save(stage(b2c, "Perdido", 4, false, true));
-
-                stageRepository.save(stage(b2b, "Prospeccao", 1, false, false));
-                stageRepository.save(stage(b2b, "Diagnostico", 2, false, false));
-                stageRepository.save(stage(b2b, "Proposta", 3, false, false));
-                stageRepository.save(stage(b2b, "Ganho", 4, true, false));
-                stageRepository.save(stage(b2b, "Perdido", 5, false, true));
-            }
+            syncStages(stageRepository, b2b, List.of(
+                    stageDef("Prospeccao", 1, false, false),
+                    stageDef("Em Negociacao", 2, false, false),
+                    stageDef("Venda Fechada", 3, true, false),
+                    stageDef("Recorrente", 4, false, false),
+                    stageDef("Venda Perdida", 5, false, true)
+            ));
 
             if (lossReasonRepository.count() == 0) {
                 lossReasonRepository.save(lossReason("Preco"));
@@ -54,14 +52,27 @@ public class CrmBootstrapDataInitializer {
         };
     }
 
-    private CrmStageEntity stage(CrmPipelineEntity pipeline, String nome, int ordem, boolean won, boolean lost) {
-        CrmStageEntity stage = new CrmStageEntity();
-        stage.setPipeline(pipeline);
-        stage.setNome(nome);
-        stage.setOrdem(ordem);
-        stage.setWon(won);
-        stage.setLost(lost);
-        return stage;
+    private CrmPipelineEntity upsertPipeline(CrmPipelineRepository repository, String nome, BusinessType tipo) {
+        CrmPipelineEntity pipeline = repository.findByNomeIgnoreCase(nome).orElseGet(CrmPipelineEntity::new);
+        pipeline.setNome(nome);
+        pipeline.setTipoNegocio(tipo);
+        pipeline.setAtivo(true);
+        return repository.save(pipeline);
+    }
+
+    private void syncStages(CrmStageRepository repository, CrmPipelineEntity pipeline, List<StageDef> defs) {
+        for (StageDef def : defs) {
+            CrmStageEntity stage = repository.findByPipelineIdAndOrdem(pipeline.getId(), def.ordem());
+            if (stage == null) {
+                stage = new CrmStageEntity();
+                stage.setPipeline(pipeline);
+                stage.setOrdem(def.ordem());
+            }
+            stage.setNome(def.nome());
+            stage.setWon(def.won());
+            stage.setLost(def.lost());
+            repository.save(stage);
+        }
     }
 
     private CrmLossReasonEntity lossReason(String descricao) {
@@ -70,4 +81,10 @@ public class CrmBootstrapDataInitializer {
         reason.setAtivo(true);
         return reason;
     }
+
+    private StageDef stageDef(String nome, int ordem, boolean won, boolean lost) {
+        return new StageDef(nome, ordem, won, lost);
+    }
+
+    private record StageDef(String nome, int ordem, boolean won, boolean lost) {}
 }

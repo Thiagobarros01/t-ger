@@ -48,12 +48,16 @@
       <div class="section-head">
         <div>
           <h3>Produtos</h3>
-          <p>Filtro e paginação no servidor para manter performance em base grande.</p>
+          <p>Filtro e paginacao no servidor para manter performance em base grande.</p>
         </div>
         <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
 
-      <div class="filters-toolbar">
+      <div class="filters-toolbar filters-toolbar--enhanced">
+        <div class="filters-toolbar__head">
+          <strong>Filtros</strong>
+          <span class="muted-inline">Busque por descricao, linha e codigo ERP.</span>
+        </div>
         <div class="filters-grid">
           <label>
             Buscar por descricao
@@ -99,9 +103,15 @@
               <td>{{ product.line || "-" }}</td>
               <td>{{ product.manufacturer || "-" }}</td>
               <td>
-                <div class="actions-row">
-                  <button type="button" @click="editProduct(product)">Editar</button>
-                  <button type="button" @click="deleteProductRow(product)">Remover</button>
+                <div class="actions-row actions-row--compact">
+                  <button type="button" class="btn-action btn-action--edit" @click="editProduct(product)">
+                    <span class="btn-action__icon">E</span>
+                    <span>Editar</span>
+                  </button>
+                  <button type="button" class="btn-action btn-action--remove" @click="deleteProductRow(product)">
+                    <span class="btn-action__icon">X</span>
+                    <span>Remover</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -283,8 +293,15 @@ async function submitProductEdit() {
 
 async function confirmProductRemoval() {
   if (!productToRemove.value) return;
-  await removeProduct(productToRemove.value.id);
-  await loadProducts();
+  const removedId = productToRemove.value.id;
+  await removeProduct(removedId);
+  rows.value = rows.value.filter((item) => item.id !== removedId);
+  totalItems.value = Math.max(0, totalItems.value - 1);
+  if (rows.value.length === 0 && page.value > 1) {
+    page.value = page.value - 1;
+  } else {
+    await loadProducts();
+  }
   closeProductActions();
 }
 

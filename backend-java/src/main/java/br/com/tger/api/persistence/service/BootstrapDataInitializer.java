@@ -2,6 +2,7 @@ package br.com.tger.api.persistence.service;
 
 import br.com.tger.api.model.AssetStatus;
 import br.com.tger.api.model.AssetType;
+import br.com.tger.api.model.EquipmentCondition;
 import br.com.tger.api.model.IpMode;
 import br.com.tger.api.model.ModuleCode;
 import br.com.tger.api.model.TermType;
@@ -35,6 +36,11 @@ import java.util.Optional;
 public class BootstrapDataInitializer {
 
     @Bean
+    CommandLineRunner seedGlobalParameters(GlobalParameterPersistenceService service) {
+        return args -> service.ensureDefaults();
+    }
+
+    @Bean
     CommandLineRunner seedUsers(AppUserRepository userRepository) {
         return args -> {
             upsertUser(userRepository, "Thiago Admin", "thiago@tger.local", "USR-ADMIN", UserProfile.ADMINISTRADOR, List.of());
@@ -42,8 +48,15 @@ public class BootstrapDataInitializer {
             upsertUser(userRepository, "Joao Suporte", "joao.suporte@tger.local", "USR-0003", UserProfile.OPERADOR, List.of(ModuleCode.TI));
             upsertUser(userRepository, "Ana Financeiro", "ana.fin@tger.local", "USR-0004", UserProfile.GESTOR, List.of(ModuleCode.FINANCEIRO));
             upsertUser(userRepository, "Carlos Comercial", "carlos.comercial@tger.local", "USR-0005", UserProfile.GESTOR, List.of(ModuleCode.COMERCIAL));
-            upsertUser(userRepository, "Lucas Vendas", "lucas.vendas@tger.local", "USR-0006", UserProfile.OPERADOR, List.of(ModuleCode.COMERCIAL));
+            upsertUser(userRepository, "Lucas Vendas", "lucas.vendas@tger.local", "USR-0006", UserProfile.OPERADOR, List.of(ModuleCode.COMERCIAL, ModuleCode.VENDEDOR));
             upsertUser(userRepository, "Paula Config", "paula.config@tger.local", "USR-0007", UserProfile.GESTOR, List.of(ModuleCode.CONFIGURACOES));
+
+            userRepository.findByEmailIgnoreCase("lucas.vendas@tger.local").ifPresent(user -> {
+                if (user.getLinkedSellerErpCode() == null || user.getLinkedSellerErpCode().isBlank()) {
+                    user.setLinkedSellerErpCode("VND-ERP-001");
+                    userRepository.save(user);
+                }
+            });
         };
     }
 
@@ -97,13 +110,13 @@ public class BootstrapDataInitializer {
 
             upsertAsset(assetRepository, "TI-0001", "Empresa Matriz", "EMP-ERP-001", AssetType.NOTEBOOK, "TI", "Dell", "Latitude 5420",
                     "SN-5420-ABCD", "PAT-10021", "Notebook de suporte", AssetStatus.EM_USO, joaoId, joaoName, termJoao.getId(),
-                    "Termo de Responsabilidade", "2026-02-01 - RH -> TI\n2026-02-02 - TI -> Joao", IpMode.DHCP, "192.168.0.45", null);
+                    "Termo de Responsabilidade", "2026-02-01 - RH -> TI\n2026-02-02 - TI -> Joao", IpMode.DHCP, "192.168.0.45", null, EquipmentCondition.USADO);
             upsertAsset(assetRepository, "TI-0002", "Empresa Matriz", "EMP-ERP-001", AssetType.CELULAR, "Comercial", "Samsung", "A54",
                     "SN-A54-9988", "PAT-10022", "Celular de campo", AssetStatus.EM_USO, marinaId, marinaName, termMarina.getId(),
-                    "Termo de Responsabilidade", "2026-01-20 - Estoque -> Comercial", IpMode.ESTATICO, "10.0.0.88", "359999999999999");
+                    "Termo de Responsabilidade", "2026-01-20 - Estoque -> Comercial", IpMode.ESTATICO, "10.0.0.88", "359999999999999", EquipmentCondition.USADO);
             upsertAsset(assetRepository, "TI-0003", "Filial Sul", "EMP-ERP-002", AssetType.MONITOR, "Financeiro", "LG", "24MP400",
                     "SN-LG24-9090", "PAT-10023", "Monitor reserva", AssetStatus.DISPONIVEL, marinaId, marinaName, null,
-                    null, "", IpMode.DHCP, null, null);
+                    null, "", IpMode.DHCP, null, null, EquipmentCondition.NOVO);
 
             upsertTicket(ticketRepository, "Notebook sem acesso a VPN", "Carlos Comercial", "Joao Suporte", "Alta", "Em andamento",
                     List.of(
@@ -223,7 +236,8 @@ public class BootstrapDataInitializer {
             String transferHistory,
             IpMode ipMode,
             String ipAddress,
-            String imei
+            String imei,
+            EquipmentCondition equipmentCondition
     ) {
         if (repository.existsByInternalCodeIgnoreCase(internalCode)) return;
         TiAssetEntity entity = new TiAssetEntity();
@@ -246,6 +260,7 @@ public class BootstrapDataInitializer {
         entity.setIpMode(ipMode);
         entity.setIpAddress(ipAddress);
         entity.setImei(imei);
+        entity.setEquipmentCondition(equipmentCondition);
         entity.setExtraFieldsJson("{}");
         repository.save(entity);
     }

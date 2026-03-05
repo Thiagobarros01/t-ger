@@ -48,6 +48,13 @@ public class CommercialPersistenceController {
     public void deleteSeller(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         service.deleteSeller(id, authorizationHeader);
     }
+    @PostMapping("/sellers/bulk-upsert")
+    public BulkUpsertResultDto bulkSellers(
+            @RequestBody List<SellerRequestDto> rows,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.bulkUpsertSellers(rows, authorizationHeader);
+    }
 
     @GetMapping("/products")
     public List<ProductResponseDto> products(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
@@ -95,6 +102,13 @@ public class CommercialPersistenceController {
     public List<CustomerResponseDto> customers(@RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         return service.listCustomers(authorizationHeader);
     }
+    @PostMapping("/customers/by-ids")
+    public List<CustomerResponseDto> customersByIds(
+            @RequestBody List<Long> ids,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.listCustomersByIds(ids, authorizationHeader);
+    }
     @GetMapping("/customers/paged")
     public PagedResponseDto<CustomerResponseDto> customersPaged(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
@@ -132,5 +146,13 @@ public class CommercialPersistenceController {
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
         return service.bulkUpsertCustomers(rows, authorizationHeader);
+    }
+
+    @PostMapping("/sales-history/bulk-upsert")
+    public BulkUpsertResultDto bulkSalesHistory(
+            @RequestBody List<SalesHistoryImportRequestDto> rows,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.bulkUpsertSalesHistory(rows, authorizationHeader);
     }
 }

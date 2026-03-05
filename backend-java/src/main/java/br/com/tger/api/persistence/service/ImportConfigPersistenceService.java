@@ -37,6 +37,31 @@ public class ImportConfigPersistenceService {
                     new ImportFieldConfigDto("categoria", "Categoria", "categoria", false),
                     new ImportFieldConfigDto("linha", "Linha", "linha", false),
                     new ImportFieldConfigDto("fabricante", "Fabricante", "fabricante", false)
+            ),
+            "vendedores", List.of(
+                    new ImportFieldConfigDto("codigo_erp", "Codigo ERP", "codigo_erp", true),
+                    new ImportFieldConfigDto("nome", "Nome do vendedor", "nome", true),
+                    new ImportFieldConfigDto("email", "Email", "email", false),
+                    new ImportFieldConfigDto("telefone", "Telefone", "telefone", false)
+            ),
+            "historico_vendas", List.of(
+                    new ImportFieldConfigDto("cd_emp", "Empresa ERP", "cd_emp", false),
+                    new ImportFieldConfigDto("nu_ped", "Numero Pedido", "nu_ped", false),
+                    new ImportFieldConfigDto("seq", "Sequencia", "seq", false),
+                    new ImportFieldConfigDto("nu_nf", "Numero NF", "nu_nf", false),
+                    new ImportFieldConfigDto("dt_ped", "Data Pedido", "dt_ped", false),
+                    new ImportFieldConfigDto("dt_fatur", "Data Faturamento", "dt_fatur", false),
+                    new ImportFieldConfigDto("dt_devol", "Data Devolucao", "dt_devol", false),
+                    new ImportFieldConfigDto("dt_canc", "Data Cancelamento", "dt_canc", false),
+                    new ImportFieldConfigDto("cd_situacao_pedido", "Status Pedido", "cd_situacao_pedido", false),
+                    new ImportFieldConfigDto("cd_clien", "Cliente ERP", "cd_clien", true),
+                    new ImportFieldConfigDto("cd_vend", "Vendedor ERP", "cd_vend", true),
+                    new ImportFieldConfigDto("cd_prod", "Produto ERP", "cd_prod", true),
+                    new ImportFieldConfigDto("qtde", "Quantidade", "qtde", false),
+                    new ImportFieldConfigDto("vl_liquido", "Valor Liquido", "vl_liquido", false),
+                    new ImportFieldConfigDto("vl_tot_nf", "Valor Total NF", "vl_tot_nf", false),
+                    new ImportFieldConfigDto("vl_cancelado", "Valor Cancelado", "vl_cancelado", false),
+                    new ImportFieldConfigDto("vl_devolvido", "Valor Devolvido", "vl_devolvido", false)
             )
     );
 

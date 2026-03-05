@@ -2,6 +2,7 @@ package br.com.tger.api.persistence.entity;
 
 import br.com.tger.api.model.AssetStatus;
 import br.com.tger.api.model.AssetType;
+import br.com.tger.api.model.EquipmentCondition;
 import br.com.tger.api.model.IpMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -71,6 +72,10 @@ public class TiAssetEntity {
     @Column(name = "extra_fields_json")
     private String extraFieldsJson;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "equipment_condition")
+    private EquipmentCondition equipmentCondition;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -116,6 +121,8 @@ public class TiAssetEntity {
     public void setImei(String imei) { this.imei = imei; }
     public String getExtraFieldsJson() { return extraFieldsJson; }
     public void setExtraFieldsJson(String extraFieldsJson) { this.extraFieldsJson = extraFieldsJson; }
+    public EquipmentCondition getEquipmentCondition() { return equipmentCondition; }
+    public void setEquipmentCondition(EquipmentCondition equipmentCondition) { this.equipmentCondition = equipmentCondition; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 }

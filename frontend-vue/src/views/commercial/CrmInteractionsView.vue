@@ -7,12 +7,11 @@
       <form class="form-grid" @submit.prevent="saveInteraction">
         <label>
           Cliente
-          <select v-model.number="form.clienteId" required>
-            <option :value="null">Selecione</option>
-            <option v-for="customer in state.customers" :key="customer.id" :value="customer.id">
-              {{ customer.corporateName }}
-            </option>
-          </select>
+          <SearchSelect
+            v-model="form.clienteId"
+            :fetch-options="searchCustomerOptions"
+            placeholder="Selecione cliente"
+          />
         </label>
         <label>
           Deal (opcional)
@@ -101,10 +100,11 @@
 import { computed, onMounted, reactive } from "vue";
 import PageHeader from "../../components/PageHeader.vue";
 import PaginationBar from "../../components/PaginationBar.vue";
+import SearchSelect from "../../components/SearchSelect.vue";
 import { useCrmData } from "../../composables/useCrmData";
 import { usePagination } from "../../composables/usePagination";
 
-const { state, ensureLoaded, createInteraction } = useCrmData();
+const { state, ensureLoaded, createInteraction, searchCustomers, customerNameById } = useCrmData();
 
 const form = reactive({
   clienteId: null,
@@ -148,7 +148,7 @@ async function saveInteraction() {
 }
 
 function customerName(id) {
-  return state.customers.find((item) => item.id === id)?.corporateName ?? `#${id}`;
+  return customerNameById(id);
 }
 
 function userName(id) {
@@ -158,5 +158,18 @@ function userName(id) {
 function formatDate(value) {
   if (!value) return "-";
   return new Date(value).toLocaleString("pt-BR");
+}
+
+async function searchCustomerOptions(query, page, pageSize) {
+  const response = await searchCustomers(query, page, pageSize);
+  return {
+    items: (response.items ?? []).map((customer) => ({
+      value: customer.id,
+      label: customer.corporateName,
+      meta: customer.code || customer.erpCode || null,
+      searchText: `${customer.corporateName ?? ""} ${customer.code ?? ""} ${customer.erpCode ?? ""}`
+    })),
+    totalPages: response.totalPages ?? 1
+  };
 }
 </script>

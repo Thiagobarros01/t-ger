@@ -11,6 +11,7 @@ public record AdminUserResponseDto(
         String name,
         String email,
         String erpCode,
+        String linkedSellerErpCode,
         UserProfile profile,
         boolean active,
         Instant lastPasswordResetAt,

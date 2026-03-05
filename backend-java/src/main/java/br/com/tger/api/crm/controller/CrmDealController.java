@@ -21,6 +21,13 @@ public class CrmDealController {
         return service.listDeals(authorizationHeader);
     }
 
+    @PostMapping("/sync-from-sales-history")
+    public CrmHistorySyncResultDto syncFromSalesHistory(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.syncDealsFromSalesHistory(authorizationHeader);
+    }
+
     @PostMapping
     public DealResponseDto create(@Valid @RequestBody CreateDealRequestDto request) {
         return service.createDeal(request);

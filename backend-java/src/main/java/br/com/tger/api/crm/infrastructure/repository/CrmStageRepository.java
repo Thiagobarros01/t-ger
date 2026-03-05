@@ -7,4 +7,7 @@ import java.util.List;
 
 public interface CrmStageRepository extends JpaRepository<CrmStageEntity, Long> {
     List<CrmStageEntity> findByPipelineIdOrderByOrdemAsc(Long pipelineId);
+    CrmStageEntity findByPipelineIdAndOrdem(Long pipelineId, Integer ordem);
+    CrmStageEntity findFirstByPipelineIdAndIsWonFalseAndIsLostFalseOrderByOrdemAsc(Long pipelineId);
+    CrmStageEntity findFirstByPipelineIdOrderByOrdemAsc(Long pipelineId);
 }

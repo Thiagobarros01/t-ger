@@ -8,5 +8,6 @@ import java.util.List;
 
 public record UpdateUserPermissionsRequestDto(
         @NotNull UserProfile profile,
-        List<ModuleCode> modules
+        List<ModuleCode> modules,
+        String linkedSellerErpCode
 ) {}

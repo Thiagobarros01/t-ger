@@ -12,6 +12,7 @@ public record AdminUserCreateRequestDto(
         @NotBlank String name,
         @NotBlank @Email String email,
         String erpCode,
+        String linkedSellerErpCode,
         @NotNull UserProfile profile,
         List<ModuleCode> modules
 ) {}

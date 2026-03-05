@@ -8,4 +8,5 @@ import java.util.Optional;
 
 public interface TiAssetHistoryRepository extends JpaRepository<TiAssetHistoryEntity, Long>, JpaSpecificationExecutor<TiAssetHistoryEntity> {
     Optional<TiAssetHistoryEntity> findTopByAsset_IdOrderByChangedAtDesc(Long assetId);
+    long deleteByAsset_Id(Long assetId);
 }
