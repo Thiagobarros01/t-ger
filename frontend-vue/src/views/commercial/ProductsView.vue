@@ -1,12 +1,11 @@
 <template>
   <div>
-    <PageHeader eyebrow="Gestao do Comercial" title="Cadastro de Produto" subtitle="Codigo interno gerado pelo sistema + Codigo ERP." />
+    <PageHeader eyebrow="Gestao do Comercial" title="Produtos" subtitle="" />
 
     <div class="panel">
       <div class="section-head">
         <div>
           <h3>Novo produto</h3>
-          <p>Codigo interno automatico + integracao com ERP.</p>
         </div>
       </div>
       <form class="form-grid" @submit.prevent="saveProduct">
@@ -48,7 +47,6 @@
       <div class="section-head">
         <div>
           <h3>Produtos</h3>
-          <p>Filtro e paginacao no servidor para manter performance em base grande.</p>
         </div>
         <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
@@ -56,7 +54,7 @@
       <div class="filters-toolbar filters-toolbar--enhanced">
         <div class="filters-toolbar__head">
           <strong>Filtros</strong>
-          <span class="muted-inline">Busque por descricao, linha e codigo ERP.</span>
+          <span class="muted-inline">Descricao, linha e codigo ERP.</span>
         </div>
         <div class="filters-grid">
           <label>
@@ -128,53 +126,55 @@
       />
     </div>
 
-    <div class="panel" v-if="editingProduct || productToRemove">
-      <div class="section-head">
-        <div>
-          <h3>{{ editingProduct ? "Editar produto" : "Confirmar remocao de produto" }}</h3>
-          <p v-if="editingProduct">Altere os dados e salve.</p>
-          <p v-else>Remocao fisica do cadastro do produto.</p>
+    <div class="modal-overlay" v-if="editingProduct || productToRemove" @click.self="closeProductActions">
+      <div class="modal-card modal-card--small">
+        <div class="section-head">
+          <div>
+            <h3>{{ editingProduct ? "Editar produto" : "Confirmar remocao de produto" }}</h3>
+            <p v-if="editingProduct">Altere os dados do produto.</p>
+            <p v-else>Remocao fisica do cadastro do produto.</p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeProductActions">Fechar</button>
         </div>
-        <button type="button" class="btn-soft" @click="closeProductActions">Fechar</button>
-      </div>
 
-      <form v-if="editingProduct" class="form-grid" @submit.prevent="submitProductEdit">
-        <label>
-          Codigo ERP
-          <input v-model="editProductForm.erpCode" />
-        </label>
-        <label class="full">
-          Descricao
-          <input v-model="editProductForm.description" required />
-        </label>
-        <label>
-          Departamento
-          <input v-model="editProductForm.department" />
-        </label>
-        <label>
-          Categoria
-          <input v-model="editProductForm.category" />
-        </label>
-        <label>
-          Linha
-          <input v-model="editProductForm.line" />
-        </label>
-        <label>
-          Fabricante
-          <input v-model="editProductForm.manufacturer" />
-        </label>
-        <div class="full actions-row">
-          <button class="btn-primary" type="submit">Salvar alteracoes</button>
-          <button type="button" @click="closeProductActions">Cancelar</button>
-        </div>
-      </form>
+        <form v-if="editingProduct" class="form-grid" @submit.prevent="submitProductEdit">
+          <label>
+            Codigo ERP
+            <input v-model="editProductForm.erpCode" />
+          </label>
+          <label class="full">
+            Descricao
+            <input v-model="editProductForm.description" required />
+          </label>
+          <label>
+            Departamento
+            <input v-model="editProductForm.department" />
+          </label>
+          <label>
+            Categoria
+            <input v-model="editProductForm.category" />
+          </label>
+          <label>
+            Linha
+            <input v-model="editProductForm.line" />
+          </label>
+          <label>
+            Fabricante
+            <input v-model="editProductForm.manufacturer" />
+          </label>
+          <div class="full actions-row">
+            <button class="btn-primary" type="submit">Salvar alteracoes</button>
+            <button type="button" @click="closeProductActions">Cancelar</button>
+          </div>
+        </form>
 
-      <div v-else-if="productToRemove" class="crud-box">
-        <p><strong>{{ productToRemove.description }}</strong></p>
-        <p class="muted">Codigo ERP: {{ productToRemove.erpCode || "-" }}</p>
-        <div class="actions-row">
-          <button type="button" class="btn-soft" @click="closeProductActions">Cancelar</button>
-          <button type="button" @click="confirmProductRemoval">Remover</button>
+        <div v-else-if="productToRemove" class="crud-box">
+          <p><strong>{{ productToRemove.description }}</strong></p>
+          <p class="muted">Codigo ERP: {{ productToRemove.erpCode || "-" }}</p>
+          <div class="actions-row">
+            <button type="button" class="btn-soft" @click="closeProductActions">Cancelar</button>
+            <button type="button" @click="confirmProductRemoval">Remover</button>
+          </div>
         </div>
       </div>
     </div>

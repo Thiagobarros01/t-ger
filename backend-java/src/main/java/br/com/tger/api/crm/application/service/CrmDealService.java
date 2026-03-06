@@ -4,6 +4,11 @@ import br.com.tger.api.crm.domain.DealStatus;
 import br.com.tger.api.crm.domain.OpportunityType;
 import br.com.tger.api.crm.dto.CloseDealLostRequestDto;
 import br.com.tger.api.crm.dto.CrmHistorySyncResultDto;
+import br.com.tger.api.crm.dto.CrmCustomerOrderHistoryItemDto;
+import br.com.tger.api.crm.dto.CrmCustomerOrderHistoryProjection;
+import br.com.tger.api.crm.dto.CrmCustomerProfileResponseDto;
+import br.com.tger.api.crm.dto.CrmCustomerProfileSummaryDto;
+import br.com.tger.api.crm.dto.CrmCustomerTopProductProjection;
 import br.com.tger.api.crm.dto.CreateDealRequestDto;
 import br.com.tger.api.crm.dto.DealResponseDto;
 import br.com.tger.api.crm.dto.MoveDealStageRequestDto;
@@ -17,6 +22,7 @@ import br.com.tger.api.crm.infrastructure.repository.CrmLossReasonRepository;
 import br.com.tger.api.crm.infrastructure.repository.CrmPipelineRepository;
 import br.com.tger.api.crm.infrastructure.repository.CrmStageRepository;
 import br.com.tger.api.dto.UserDto;
+import br.com.tger.api.dto.common.PagedResponseDto;
 import br.com.tger.api.persistence.entity.CompanyEntity;
 import br.com.tger.api.persistence.entity.CustomerEntity;
 import br.com.tger.api.persistence.entity.GlobalParameterEntity;
@@ -30,6 +36,9 @@ import br.com.tger.api.persistence.service.GlobalParameterPersistenceService;
 import br.com.tger.api.dto.commercial.SalesHistorySyncProjection;
 import br.com.tger.api.crm.domain.BusinessType;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -43,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.text.Normalizer;
 import java.util.Locale;
+import java.util.Optional;
 
 @Service
 public class CrmDealService {
@@ -91,6 +101,89 @@ public class CrmDealService {
             return dealRepository.findByVendedorEmailIgnoreCase(user.email()).stream().map(this::toDto).toList();
         }
         return dealRepository.findAll().stream().map(this::toDto).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CrmCustomerProfileResponseDto getCustomerProfile(
+            Long customerId,
+            Integer page,
+            Integer pageSize,
+            String authorizationHeader
+    ) {
+        UserDto user = accessService.resolveUser(authorizationHeader);
+        CustomerEntity customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente nao encontrado."));
+        if (accessService.isOperator(user)) {
+            String ownSellerErp = trim(user.linkedSellerErpCode());
+            String customerSellerErp = trim(customer.getErpSellerCode());
+            if (ownSellerErp == null || customerSellerErp == null || !ownSellerErp.equalsIgnoreCase(customerSellerErp)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Operador sem acesso a esse cliente.");
+            }
+        }
+        int safePage = Math.max(1, page == null ? 1 : page);
+        int safePageSize = normalizePageSize(pageSize);
+        Pageable pageable = PageRequest.of(safePage - 1, safePageSize);
+
+        String customerErpCode = trim(customer.getErpCode());
+        if (customerErpCode == null) {
+            CrmCustomerProfileSummaryDto summary = new CrmCustomerProfileSummaryDto(
+                    customer.getId(),
+                    customer.getCorporateName(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    BigDecimal.ZERO,
+                    0L
+            );
+            return new CrmCustomerProfileResponseDto(
+                    summary,
+                    new PagedResponseDto<>(List.of(), safePage, safePageSize, 0, 0)
+            );
+        }
+
+        LocalDate lastOrderDate = salesHistoryRepository.findLastOrderDateByCustomerErpCode(customerErpCode);
+        Long daysWithoutPurchase = lastOrderDate == null
+                ? null
+                : ChronoUnit.DAYS.between(lastOrderDate, LocalDate.now());
+        long totalOrders = salesHistoryRepository.countByCustomerErpCode(customerErpCode);
+        Optional<CrmCustomerTopProductProjection> topProduct = salesHistoryRepository
+                .findTopProductByCustomerErpCode(customerErpCode);
+        Page<CrmCustomerOrderHistoryProjection> historyPage = salesHistoryRepository
+                .findOrderHistoryByCustomerErpCode(customerErpCode, pageable);
+
+        CrmCustomerProfileSummaryDto summary = new CrmCustomerProfileSummaryDto(
+                customer.getId(),
+                customer.getCorporateName(),
+                customerErpCode,
+                lastOrderDate,
+                daysWithoutPurchase,
+                topProduct.map(CrmCustomerTopProductProjection::getProductErpCode).orElse(null),
+                topProduct.map(CrmCustomerTopProductProjection::getProductName).orElse(null),
+                topProduct.map(item -> item.getTotalQuantity() == null ? BigDecimal.ZERO : item.getTotalQuantity()).orElse(BigDecimal.ZERO),
+                totalOrders
+        );
+
+        PagedResponseDto<CrmCustomerOrderHistoryItemDto> history = new PagedResponseDto<>(
+                historyPage.getContent().stream()
+                        .map(item -> new CrmCustomerOrderHistoryItemDto(
+                                item.getHistoryId(),
+                                item.getOrderDate(),
+                                item.getOrderNumber(),
+                                item.getOrderStatusCode(),
+                                item.getProductErpCode(),
+                                item.getProductName(),
+                                item.getQuantity(),
+                                item.getTotalValue()
+                        ))
+                        .toList(),
+                safePage,
+                safePageSize,
+                historyPage.getTotalElements(),
+                historyPage.getTotalPages()
+        );
+        return new CrmCustomerProfileResponseDto(summary, history);
     }
 
     @Transactional
@@ -596,5 +689,10 @@ public class CrmDealService {
             return value90d.divide(BigDecimal.valueOf(safeOrders), 2, java.math.RoundingMode.HALF_UP);
         }
         return fallback;
+    }
+
+    private int normalizePageSize(Integer pageSize) {
+        if (pageSize == null || pageSize < 1) return 10;
+        return Math.min(pageSize, 50);
     }
 }

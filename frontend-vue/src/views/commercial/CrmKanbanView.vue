@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div>
     <PageHeader eyebrow="CRM Comercial" title="Kanban de Oportunidades" subtitle="Pipeline e etapas de negociações B2C/B2B." />
 
@@ -123,7 +123,7 @@
       </form>
     </div>
 
-    <div class="kanban-board" v-if="selectedStages.length">
+    <div class="kanban-board kanban-board--crm" v-if="selectedStages.length">
       <section class="kanban-column" :class="{ 'kanban-column--drop': dragOverStageId === stage.id }" v-for="stage in selectedStages" :key="stage.id">
         <header class="kanban-column__header">
           <strong>{{ stage.nome }}</strong>
@@ -138,28 +138,38 @@
         >
           <TransitionGroup name="kanban-move" tag="div" class="kanban-cards">
             <article
-              class="kanban-card"
+              class="kanban-card crm-kanban-card"
               :class="{ 'kanban-card--dragging': draggingDealId === deal.id, 'kanban-card--selected': selectedDealId === deal.id }"
               v-for="deal in paginatedStageDeals(stage.id)"
               :key="deal.id"
               draggable="true"
               @dragstart="onDragStart(deal)"
               @dragend="onDragEnd"
-              @click="selectDeal(deal)"
+              @click="openDealDetails(deal)"
             >
             <div class="kanban-card__head">
               <strong>#{{ deal.id }}</strong>
-              <span class="tag">{{ deal.status }}</span>
+              <span class="tag" :class="statusTagClass(deal.status)">{{ deal.status }}</span>
             </div>
-            <p>Tipo: {{ deal.tipoOportunidade || "NOVA" }}</p>
-            <p>Cliente: {{ customerName(deal.clienteId) }}</p>
-            <p>Vendedor: {{ sellerName(deal.vendedorId) }}</p>
-            <p>Valor: {{ formatCurrency(deal.valorEstimado) }}</p>
-            <p>Pedido: {{ deal.numeroPedido || "-" }}</p>
-            <p>Situação pedido: {{ deal.situacaoPedido || "-" }}</p>
-            <p>Ultimo pedido: {{ formatDate(deal.dataUltimoPedido) }}</p>
-            <div class="actions-row">
-              <button type="button" @click.stop="selectDeal(deal)">Gerenciar</button>
+            <h4 class="crm-kanban-card__title">{{ customerName(deal.clienteId) }}</h4>
+            <p class="crm-kanban-card__subtitle">{{ sellerName(deal.vendedorId) }} | {{ deal.tipoOportunidade || "NOVA" }}</p>
+            <div class="crm-kanban-kpi-row">
+              <div>
+                <span>Valor</span>
+                <strong>{{ formatCurrency(deal.valorEstimado) }}</strong>
+              </div>
+              <div>
+                <span>Ultima compra</span>
+                <strong>{{ formatDate(deal.dataUltimoPedido) }}</strong>
+              </div>
+              <div>
+                <span>Sem compra</span>
+                <strong>{{ daysWithoutPurchaseLabel(deal) }}</strong>
+              </div>
+            </div>
+            <div class="crm-kanban-foot-row">
+              <span>Pedido: {{ deal.numeroPedido || "-" }}</span>
+              <button type="button" @click.stop="openDealDetails(deal)">Perfil</button>
             </div>
             </article>
           </TransitionGroup>
@@ -177,87 +187,155 @@
       </section>
     </div>
 
-    <div class="panel" v-if="selectedDeal">
-      <div class="section-head">
-        <div>
-          <h3>Gerenciar Deal #{{ selectedDeal.id }}</h3>
-          <p>Cliente: {{ customerName(selectedDeal.clienteId) }} | Status: {{ selectedDeal.status }} | Pedido: {{ selectedDeal.numeroPedido || "-" }} ({{ selectedDeal.situacaoPedido || "-" }})</p>
+    <div class="modal-overlay" v-if="selectedDeal" @click.self="closeDealDetails">
+      <div class="modal-card crm-deal-modal">
+        <div class="section-head">
+          <div>
+            <h3>Deal #{{ selectedDeal.id }} | {{ customerName(selectedDeal.clienteId) }}</h3>
+            <p>Status: {{ selectedDeal.status }} | Pedido: {{ selectedDeal.numeroPedido || "-" }} | Situacao: {{ selectedDeal.situacaoPedido || "-" }}</p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeDealDetails">Fechar</button>
         </div>
-        <button type="button" class="btn-soft" @click="clearSelectedDeal">Fechar</button>
+
+        <div class="crm-deal-modal__grid">
+          <section class="crm-profile-panel">
+            <div class="crm-profile-head">
+              <h4>Perfil de compra</h4>
+              <button type="button" class="btn-soft" @click="refreshCustomerProfile" :disabled="customerProfileLoading">Atualizar</button>
+            </div>
+
+            <div v-if="customerProfileLoading" class="empty-state">Carregando historico...</div>
+            <div v-else-if="customerProfileError" class="empty-state">{{ customerProfileError }}</div>
+            <template v-else>
+              <div class="crm-profile-kpis" v-if="customerProfile?.summary">
+                <div class="stat-card">
+                  <span>Ultima compra</span>
+                  <strong>{{ formatDate(customerProfile.summary.lastOrderDate) }}</strong>
+                </div>
+                <div class="stat-card">
+                  <span>Dias sem compra</span>
+                  <strong>{{ customerProfile.summary.daysWithoutPurchase ?? "-" }}</strong>
+                </div>
+                <div class="stat-card">
+                  <span>Produto mais comprado</span>
+                  <strong>{{ customerProfile.summary.topProductErpCode || "-" }}</strong>
+                  <small>{{ customerProfile.summary.topProductName || "Sem nome mapeado" }}</small>
+                </div>
+              </div>
+
+              <div class="table-scroll" v-if="customerHistoryItems.length">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Pedido</th>
+                      <th>Produto</th>
+                      <th>Nome produto</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="item in customerHistoryItems" :key="item.historyId">
+                      <td>{{ formatDate(item.orderDate) }}</td>
+                      <td>{{ item.orderNumber || "-" }}</td>
+                      <td>{{ item.productErpCode || "-" }}</td>
+                      <td>{{ item.productName || "-" }}</td>
+                      <td>{{ formatCurrency(item.totalValue) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="empty-state">Cliente sem historico de compras.</div>
+
+              <div class="pagination-bar" v-if="customerHistoryTotalPages > 1">
+                <div class="pagination-bar__meta">
+                  <span>Pagina {{ customerHistoryPage }} / {{ customerHistoryTotalPages }}</span>
+                </div>
+                <div class="pagination-bar__controls">
+                  <button type="button" @click="changeCustomerHistoryPage(customerHistoryPage - 1)" :disabled="customerHistoryPage <= 1">&lt;</button>
+                  <button type="button" @click="changeCustomerHistoryPage(customerHistoryPage + 1)" :disabled="customerHistoryPage >= customerHistoryTotalPages">&gt;</button>
+                </div>
+              </div>
+            </template>
+          </section>
+
+          <section class="crm-edit-panel">
+            <div class="form-grid">
+              <label>
+                Cliente
+                <SearchSelect
+                  v-model="dealEdit.clienteId"
+                  :fetch-options="searchCustomerOptions"
+                  placeholder="Selecione cliente"
+                />
+              </label>
+              <label>
+                Empresa (B2B)
+                <SearchSelect
+                  v-model="dealEdit.empresaId"
+                  :options="companyOptions"
+                  placeholder="Sem empresa"
+                  :allow-empty="true"
+                  empty-label="Sem empresa"
+                />
+              </label>
+              <label>
+                Vendedor (owner)
+                <SearchSelect
+                  v-model="dealEdit.vendedorId"
+                  :options="sellerOptions"
+                  placeholder="Selecione vendedor"
+                />
+              </label>
+              <label>
+                Tipo da oportunidade
+                <select v-model="dealEdit.tipoOportunidade">
+                  <option value="NOVA">Nova</option>
+                  <option value="RECOMPRA">Recompra</option>
+                  <option value="RESGATE">Resgate</option>
+                </select>
+              </label>
+              <label>
+                Valor estimado
+                <input v-model="dealEdit.valorEstimado" type="number" step="0.01" />
+              </label>
+              <label>
+                Probabilidade (%)
+                <input v-model.number="dealEdit.probabilidade" type="number" min="0" max="100" />
+              </label>
+              <label>
+                Fechamento previsto
+                <input v-model="dealEdit.dataPrevistaFechamento" type="date" />
+              </label>
+              <div class="full actions-row">
+                <button type="button" class="btn-primary" @click="saveDealEdit">Salvar dados do card</button>
+              </div>
+              <label>
+                Mover para etapa
+                <SearchSelect
+                  v-model="dealAction.stageId"
+                  :options="stageOptions"
+                  placeholder="Selecione etapa"
+                />
+              </label>
+              <label v-if="selectedActionStage?.isLost">
+                Motivo da perda
+                <SearchSelect
+                  v-model="dealAction.motivoPerdaId"
+                  :options="lossReasonOptions"
+                  placeholder="Selecione motivo"
+                />
+              </label>
+              <div class="full actions-row">
+                <button type="button" class="btn-primary" @click="moveStage">Mover etapa</button>
+                <button type="button" @click="closeWon">Fechar como ganha</button>
+                <button type="button" @click="closeLost">Fechar como perdida</button>
+              </div>
+            </div>
+            <p class="danger-text" v-if="errorMessage">{{ errorMessage }}</p>
+          </section>
+        </div>
       </div>
-      <div class="form-grid">
-        <label>
-          Cliente
-          <SearchSelect
-            v-model="dealEdit.clienteId"
-            :fetch-options="searchCustomerOptions"
-            placeholder="Selecione cliente"
-          />
-        </label>
-        <label>
-          Empresa (B2B)
-          <SearchSelect
-            v-model="dealEdit.empresaId"
-            :options="companyOptions"
-            placeholder="Sem empresa"
-            :allow-empty="true"
-            empty-label="Sem empresa"
-          />
-        </label>
-        <label>
-          Vendedor (owner)
-          <SearchSelect
-            v-model="dealEdit.vendedorId"
-            :options="sellerOptions"
-            placeholder="Selecione vendedor"
-          />
-        </label>
-        <label>
-          Tipo da oportunidade
-          <select v-model="dealEdit.tipoOportunidade">
-            <option value="NOVA">Nova</option>
-            <option value="RECOMPRA">Recompra</option>
-            <option value="RESGATE">Resgate</option>
-          </select>
-        </label>
-        <label>
-          Valor estimado
-          <input v-model="dealEdit.valorEstimado" type="number" step="0.01" />
-        </label>
-        <label>
-          Probabilidade (%)
-          <input v-model.number="dealEdit.probabilidade" type="number" min="0" max="100" />
-        </label>
-        <label>
-          Fechamento previsto
-          <input v-model="dealEdit.dataPrevistaFechamento" type="date" />
-        </label>
-        <div class="full actions-row">
-          <button type="button" class="btn-primary" @click="saveDealEdit">Salvar dados do card</button>
-        </div>
-        <label>
-          Mover para etapa
-          <SearchSelect
-            v-model="dealAction.stageId"
-            :options="stageOptions"
-            placeholder="Selecione etapa"
-          />
-        </label>
-        <label v-if="selectedActionStage?.isLost">
-          Motivo da perda
-          <SearchSelect
-            v-model="dealAction.motivoPerdaId"
-            :options="lossReasonOptions"
-            placeholder="Selecione motivo"
-          />
-        </label>
-        <div class="full actions-row">
-          <button type="button" class="btn-primary" @click="moveStage">Mover etapa</button>
-          <button type="button" @click="closeWon">Fechar como ganha</button>
-          <button type="button" @click="closeLost">Fechar como perdida</button>
-        </div>
-      </div>
-      <p class="danger-text" v-if="errorMessage">{{ errorMessage }}</p>
     </div>
 
     <div class="modal-overlay" v-if="showPipelineConfig" @click.self="closePipelineConfig">
@@ -319,7 +397,7 @@ import PageHeader from "../../components/PageHeader.vue";
 import SearchSelect from "../../components/SearchSelect.vue";
 import { useCrmData } from "../../composables/useCrmData";
 
-const { state, ensureLoaded, stagesForPipeline, dealsByStage, createDeal, updateDeal, moveDealStage, closeDealWon, closeDealLost, createStage, updateStage, deleteStage, syncDealsFromSalesHistory, searchCustomers, customerNameById } = useCrmData();
+const { state, ensureLoaded, stagesForPipeline, dealsByStage, createDeal, updateDeal, moveDealStage, closeDealWon, closeDealLost, createStage, updateStage, deleteStage, syncDealsFromSalesHistory, searchCustomers, customerNameById, getCustomerProfile } = useCrmData();
 
 const selectedPipelineId = ref(null);
 const selectedDealId = ref(null);
@@ -334,6 +412,11 @@ const syncingHistory = ref(false);
 const syncMessage = ref("");
 const stagePageMap = ref({});
 const stagePageSize = 25;
+const customerProfile = ref(null);
+const customerProfileLoading = ref(false);
+const customerProfileError = ref("");
+const customerHistoryPage = ref(1);
+const customerHistoryPageSize = 6;
 const kanbanFilters = reactive({
   customerTerm: "",
   orderNumber: "",
@@ -379,8 +462,7 @@ watch(selectedPipelineId, (pipelineId) => {
   const pipeline = state.pipelines.find((item) => item.id === pipelineId);
   const stages = stagesForPipeline(pipelineId);
   dealForm.stageId = stages[0]?.id ?? null;
-  selectedDealId.value = null;
-  errorMessage.value = "";
+  clearSelectedDeal();
   if (pipeline) {
     if (pipeline.tipoNegocio === "B2C") {
       dealForm.empresaId = null;
@@ -407,6 +489,8 @@ const selectedStages = computed(() => stagesForPipeline(selectedPipelineId.value
 const activeLossReasons = computed(() => state.lossReasons.filter((item) => item.ativo));
 const selectedDeal = computed(() => state.deals.find((deal) => deal.id === selectedDealId.value) ?? null);
 const selectedActionStage = computed(() => selectedStages.value.find((stage) => stage.id === dealAction.stageId) ?? null);
+const customerHistoryItems = computed(() => customerProfile.value?.history?.items ?? []);
+const customerHistoryTotalPages = computed(() => Math.max(customerProfile.value?.history?.totalPages ?? 1, 1));
 const companyOptions = computed(() =>
   state.companies.map((company) => ({
     value: company.id,
@@ -575,6 +659,20 @@ function clearKanbanFilters() {
   kanbanFilters.onlyLatestLoadDate = true;
 }
 
+function statusTagClass(status) {
+  if (status === "GANHA") return "task-status--done";
+  if (status === "PERDIDA") return "task-status--cancelled";
+  return "task-status--pending";
+}
+
+function daysWithoutPurchaseLabel(deal) {
+  if (!deal?.dataUltimoPedido) return "-";
+  const today = new Date();
+  const last = new Date(`${deal.dataUltimoPedido}T00:00:00`);
+  const diff = Math.floor((today - last) / 86400000);
+  return Number.isFinite(diff) ? `${Math.max(diff, 0)} dias` : "-";
+}
+
 async function saveDeal() {
   errorMessage.value = "";
   try {
@@ -622,6 +720,11 @@ async function syncFromErpHistory() {
   }
 }
 
+async function openDealDetails(deal) {
+  selectDeal(deal);
+  await loadCustomerProfile(1);
+}
+
 function selectDeal(deal) {
   selectedDealId.value = deal.id;
   dealAction.stageId = deal.stageId;
@@ -647,14 +750,46 @@ function clearSelectedDeal() {
   dealEdit.valorEstimado = "";
   dealEdit.probabilidade = 0;
   dealEdit.dataPrevistaFechamento = "";
+  customerProfile.value = null;
+  customerProfileError.value = "";
+  customerHistoryPage.value = 1;
   errorMessage.value = "";
+}
+
+function closeDealDetails() {
+  clearSelectedDeal();
+}
+
+async function loadCustomerProfile(page = 1) {
+  if (!selectedDeal.value?.clienteId) return;
+  customerProfileLoading.value = true;
+  customerProfileError.value = "";
+  try {
+    const response = await getCustomerProfile(selectedDeal.value.clienteId, page, customerHistoryPageSize);
+    customerProfile.value = response;
+    customerHistoryPage.value = response?.history?.page ?? page;
+  } catch (err) {
+    customerProfileError.value = parseError(err);
+  } finally {
+    customerProfileLoading.value = false;
+  }
+}
+
+async function refreshCustomerProfile() {
+  await loadCustomerProfile(customerHistoryPage.value);
+}
+
+async function changeCustomerHistoryPage(page) {
+  const next = Math.min(Math.max(1, page), customerHistoryTotalPages.value);
+  if (next === customerHistoryPage.value) return;
+  await loadCustomerProfile(next);
 }
 
 async function saveDealEdit() {
   if (!selectedDeal.value) return;
   errorMessage.value = "";
   try {
-    await updateDeal(selectedDeal.value.id, {
+    const updated = await updateDeal(selectedDeal.value.id, {
       clienteId: dealEdit.clienteId,
       empresaId: selectedPipeline.value?.tipoNegocio === "B2B" ? dealEdit.empresaId : null,
       vendedorId: dealEdit.vendedorId,
@@ -663,6 +798,9 @@ async function saveDealEdit() {
       probabilidade: dealEdit.probabilidade,
       dataPrevistaFechamento: dealEdit.dataPrevistaFechamento || null
     });
+    if (selectedDealId.value === updated.id && updated.clienteId !== customerProfile.value?.summary?.customerId) {
+      await loadCustomerProfile(1);
+    }
   } catch (err) {
     errorMessage.value = parseError(err);
   }

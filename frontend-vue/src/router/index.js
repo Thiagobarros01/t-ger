@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import AppShell from "../layouts/AppShell.vue";
 import HomeView from "../views/HomeView.vue";
+import DepartmentsView from "../views/DepartmentsView.vue";
 import LoginView from "../views/LoginView.vue";
 import ModulePlaceholderView from "../views/ModulePlaceholderView.vue";
 import UsersConfigView from "../views/config/UsersConfigView.vue";
@@ -24,6 +25,8 @@ const routes = [
     component: AppShell,
     children: [
       { path: "", name: "home", component: HomeView, meta: { moduleCode: null } },
+      { path: "departamentos", name: "departamentos", component: DepartmentsView, meta: { moduleCode: null } },
+      { path: "relatorios", name: "relatorios", component: ModulePlaceholderView, props: { moduleLabel: "Relatorios" }, meta: { moduleCode: null } },
       { path: "gestao/diretoria", name: "diretoria", component: ModulePlaceholderView, props: { moduleLabel: "Gestao da Diretoria" }, meta: { moduleCode: "DIRETORIA" } },
       { path: "gestao/financeiro", name: "financeiro", component: ModulePlaceholderView, props: { moduleLabel: "Gestao do Financeiro" }, meta: { moduleCode: "FINANCEIRO" } },
       { path: "gestao/comercial", name: "comercial", redirect: "/gestao/comercial/produtos", meta: { moduleCode: "COMERCIAL" } },

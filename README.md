@@ -1,72 +1,78 @@
-# T-GER (Base Inicial)
+﻿# T-GER
 
-Sistema de gerenciamento e gestao por setores, com controle de acesso por perfil:
+MVP de sistema de gestao por modulos (TI, Comercial/CRM e Configuracoes), com perfis de acesso:
 
-- `Administrador`: ve tudo
-- `Gestor`: ve somente modulo(s) vinculado(s)
-- `Operador`: ve somente os proprios dados (regra demonstrada nas telas de TI)
+- `ADMINISTRADOR`: acesso total
+- `GESTOR`: acesso aos modulos vinculados
+- `OPERADOR`: acesso restrito ao proprio escopo
 
-## Estrutura
+## Objetivo do MVP
 
-- `backend-java`: API Java (Spring Boot) com endpoints mockados em memoria
-- `frontend-vue`: Interface Vue 3 com layout, permissao e submodulos de TI
+Validar fluxo de operacao por setor, com base unica de usuarios e dados iniciais, incluindo:
 
-## Modulos criados (nesta etapa)
+- cadastro e consulta de clientes/produtos/vendedores
+- funil comercial (CRM) com deals, tarefas e interacoes
+- gestao de TI (ativos, termos e chamados)
+- configuracoes administrativas (usuarios, parametros, layout de importacao)
 
-- Gestao da Diretoria (placeholder)
-- Gestao da TI
-  - Ativos de Informatica
-  - Termos e Contratos (Responsabilidade, CLT, Comodato)
-  - Chamados (com mensagens)
-- Gestao do Financeiro (placeholder)
-- Gestao do Comercial (placeholder)
-- Gestao da Logistica (placeholder)
-- Gestao de Compras (placeholder)
-- Gestao do Vendedor (placeholder)
-- Gestao do Recebimento (placeholder)
-- Configuracoes
-  - Cadastro de usuarios e permissoes
+## Arquitetura
 
-## Como rodar
+- `backend-java`: Spring Boot 3, Java 17, JPA, PostgreSQL
+- `frontend-vue`: Vue 3 + Vue Router + Vite
+- `docker-compose.yml`: orquestra `postgres`, `backend`, `frontend`
+- `storage/postgres-data`: persistencia local do banco
 
-### Docker Compose (recomendado para teste rapido)
+## Modulos existentes
+
+- `Gestao da TI`
+  - ativos de informatica
+  - termos/contratos
+  - chamados
+- `Gestao Comercial`
+  - clientes, produtos, vendedores
+  - CRM (kanban, interacoes, tarefas)
+- `Gestao do Vendedor`
+  - visoes focadas no vendedor
+- `Configuracoes`
+  - usuarios administrativos
+  - parametros globais
+  - layouts de importacao
+- `Placeholders`
+  - diretoria, financeiro, logistica, compras, recebimento
+
+## Como subir (recomendado)
+
+1. Na raiz do projeto:
 
 ```powershell
-cd e:\T-GESTAO
 docker compose up --build -d
 ```
 
-App: `http://localhost:5173`
+2. Acesse:
+- Frontend: `http://localhost:5173`
+- Backend (interno): `http://backend:8080` dentro da rede Docker
+- PostgreSQL: `localhost:5555`
 
-Observacao:
-- O backend roda dentro do Docker e e acessado pelo frontend via proxy `/api`.
-- Agora o banco e PostgreSQL no Docker Compose.
-- Os dados persistem em `./storage/postgres-data` (pasta externa ao build do app).
-- Isso permite atualizar/corrigir o sistema sem perder os dados, mantendo a pasta `storage` intacta.
+## Variaveis de ambiente opcionais
 
-### Variaveis de banco (opcional)
-
-Voce pode criar um arquivo `.env` na raiz (`e:\\T-GESTAO`) para trocar credenciais:
+Crie `.env` na raiz:
 
 ```env
 POSTGRES_DB=tger
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=troque-essa-senha
+POSTGRES_PASSWORD=postgres
 ```
 
-### Backend (Java, rodando local sem Docker)
+## Execucao local sem Docker
+
+Backend:
 
 ```powershell
 cd backend-java
 mvn spring-boot:run
 ```
 
-API base: `http://localhost:8080/api`
-
-Observacao:
-- Para rodar local sem Docker, ajuste `DB_URL/DB_USERNAME/DB_PASSWORD` para um PostgreSQL local.
-
-### Frontend (Vue)
+Frontend:
 
 ```powershell
 cd frontend-vue
@@ -74,19 +80,47 @@ npm install
 npm run dev
 ```
 
-App: `http://localhost:5173`
+Observacao:
+- O frontend local (`vite`) chama `/api` relativo.
+- Sem proxy local no Vite, o modo mais simples para MVP e usar Docker Compose completo.
 
-## Observacoes para evitar retrabalho
+## Endpoints principais
 
-- Corrigi `DCHP` para `DHCP` no cadastro de ativos.
-- O frontend usa dados mockados para validacao visual/fluxo; a API Java ja expõe endpoints equivalentes para integrar na proxima etapa.
-- A regra de `Operador` esta demonstrada nas telas de TI (ativos/termos/chamados). Na integracao final, a mesma regra deve ser aplicada no backend/autenticacao.
-- Login simples implementado em `POST /api/auth/login` (homologacao local, sem JWT).
-- Usuarios de teste sao criados automaticamente no banco na primeira subida (seed inicial).
+- Auth: `/api/auth`
+- TI: `/api/ti`
+- Comercial: `/api/commercial`
+- CRM:
+  - `/api/crm/deals`
+  - `/api/crm` (tarefas/interacoes)
+  - `/api/crm/catalog` (pipelines, stages, motivos de perda)
+- Config:
+  - `/api/admin/users`
+  - `/api/config/companies`
+  - `/api/config/global-params`
+  - `/api/config/import-layouts`
 
-## Login de teste
+## Credenciais de teste
 
 - Senha padrao: `123456`
 - Admin: `thiago@tger.local`
 - Gestor TI: `marina.ti@tger.local`
 - Operador TI: `joao.suporte@tger.local`
+
+Os usuarios seed sao criados automaticamente na inicializacao do backend.
+
+## Estado atual e limites conhecidos
+
+- autenticacao simplificada para homologacao local (sem JWT real)
+- parte dos modulos ainda esta em placeholder
+- nao ha suite de testes automatizados consolidada no repositorio
+- foco atual do codigo esta em validar fluxo funcional do produto
+
+## Estrutura de pastas
+
+```text
+.
+|-- backend-java
+|-- frontend-vue
+|-- storage
+`-- docker-compose.yml
+```

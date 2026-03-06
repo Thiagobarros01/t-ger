@@ -1,12 +1,11 @@
 <template>
   <div>
-    <PageHeader eyebrow="Gestao do Comercial" title="Cadastro de Cliente" subtitle="Codigo interno gerado pelo sistema + campos ERP e dados cadastrais." />
+    <PageHeader eyebrow="Gestao do Comercial" title="Clientes" subtitle="" />
 
     <div class="panel">
       <div class="section-head">
         <div>
           <h3>Novo cliente</h3>
-          <p>Codigo interno automatico + campos ERP e dados cadastrais.</p>
         </div>
       </div>
       <form class="form-grid" @submit.prevent="saveCustomer">
@@ -60,7 +59,6 @@
       <div class="section-head">
         <div>
           <h3>Clientes</h3>
-          <p>Busca paginada no servidor com filtros por dados comerciais.</p>
         </div>
         <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
@@ -68,7 +66,6 @@
       <div class="filters-toolbar filters-toolbar--enhanced">
         <div class="filters-toolbar__head">
           <strong>Filtros</strong>
-          <span class="muted-inline">Busque por razao social, ERP, tipo e vendedor.</span>
         </div>
         <div class="filters-grid">
           <label>
@@ -154,65 +151,67 @@
       />
     </div>
 
-    <div class="panel" v-if="editingCustomer || customerToRemove">
-      <div class="section-head">
-        <div>
-          <h3>{{ editingCustomer ? "Editar cliente" : "Confirmar remocao de cliente" }}</h3>
-          <p v-if="editingCustomer">Atualize os dados cadastrais e ERP.</p>
-          <p v-else>Remocao fisica do cadastro do cliente.</p>
+    <div class="modal-overlay" v-if="editingCustomer || customerToRemove" @click.self="closeCustomerActions">
+      <div class="modal-card modal-card--small">
+        <div class="section-head">
+          <div>
+            <h3>{{ editingCustomer ? "Editar cliente" : "Confirmar remocao de cliente" }}</h3>
+            <p v-if="editingCustomer">Atualize os dados do cliente.</p>
+            <p v-else>Remocao fisica do cadastro do cliente.</p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeCustomerActions">Fechar</button>
         </div>
-        <button type="button" class="btn-soft" @click="closeCustomerActions">Fechar</button>
-      </div>
 
-      <form v-if="editingCustomer" class="form-grid" @submit.prevent="submitCustomerEdit">
-        <label>
-          Codigo ERP
-          <input v-model="editCustomerForm.erpCode" />
-        </label>
-        <label>
-          Razao social
-          <input v-model="editCustomerForm.corporateName" required />
-        </label>
-        <label>
-          E-mail
-          <input v-model="editCustomerForm.email" type="email" />
-        </label>
-        <label>
-          Tipo
-          <select v-model="editCustomerForm.type">
-            <option value="PJ">PJ</option>
-            <option value="PF">PF</option>
-          </select>
-        </label>
-        <label>
-          Nome fantasia
-          <input v-model="editCustomerForm.tradeName" />
-        </label>
-        <label>
-          Telefone
-          <input v-model="editCustomerForm.phone" />
-        </label>
-        <label>
-          Codigo ERP Vendedor
-          <select v-model="editCustomerForm.erpSellerCode">
-            <option value="">Selecione</option>
-            <option v-for="seller in state.sellers" :key="seller.id" :value="seller.erpCode">
-              {{ seller.erpCode }} - {{ seller.name }}
-            </option>
-          </select>
-        </label>
-        <div class="full actions-row">
-          <button class="btn-primary" type="submit">Salvar alteracoes</button>
-          <button type="button" @click="closeCustomerActions">Cancelar</button>
-        </div>
-      </form>
+        <form v-if="editingCustomer" class="form-grid" @submit.prevent="submitCustomerEdit">
+          <label>
+            Codigo ERP
+            <input v-model="editCustomerForm.erpCode" />
+          </label>
+          <label>
+            Razao social
+            <input v-model="editCustomerForm.corporateName" required />
+          </label>
+          <label>
+            E-mail
+            <input v-model="editCustomerForm.email" type="email" />
+          </label>
+          <label>
+            Tipo
+            <select v-model="editCustomerForm.type">
+              <option value="PJ">PJ</option>
+              <option value="PF">PF</option>
+            </select>
+          </label>
+          <label>
+            Nome fantasia
+            <input v-model="editCustomerForm.tradeName" />
+          </label>
+          <label>
+            Telefone
+            <input v-model="editCustomerForm.phone" />
+          </label>
+          <label>
+            Codigo ERP Vendedor
+            <select v-model="editCustomerForm.erpSellerCode">
+              <option value="">Selecione</option>
+              <option v-for="seller in state.sellers" :key="seller.id" :value="seller.erpCode">
+                {{ seller.erpCode }} - {{ seller.name }}
+              </option>
+            </select>
+          </label>
+          <div class="full actions-row">
+            <button class="btn-primary" type="submit">Salvar alteracoes</button>
+            <button type="button" @click="closeCustomerActions">Cancelar</button>
+          </div>
+        </form>
 
-      <div v-else-if="customerToRemove" class="crud-box">
-        <p><strong>{{ customerToRemove.corporateName }}</strong></p>
-        <p class="muted">ERP: {{ customerToRemove.erpCode || "-" }}</p>
-        <div class="actions-row">
-          <button type="button" class="btn-soft" @click="closeCustomerActions">Cancelar</button>
-          <button type="button" @click="confirmCustomerRemoval">Remover</button>
+        <div v-else-if="customerToRemove" class="crud-box">
+          <p><strong>{{ customerToRemove.corporateName }}</strong></p>
+          <p class="muted">ERP: {{ customerToRemove.erpCode || "-" }}</p>
+          <div class="actions-row">
+            <button type="button" class="btn-soft" @click="closeCustomerActions">Cancelar</button>
+            <button type="button" @click="confirmCustomerRemoval">Remover</button>
+          </div>
         </div>
       </div>
     </div>

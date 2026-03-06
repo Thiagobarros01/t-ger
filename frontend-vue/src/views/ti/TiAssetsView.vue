@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader eyebrow="Gestao da TI" title="Ativos de Informatica" subtitle="Cadastro e consulta de ativos.">
+    <PageHeader eyebrow="Gestao da TI" title="Equipamentos" subtitle="">
       <template #actions>
         <button class="btn-soft" @click="resetForm">Novo ativo</button>
       </template>
@@ -159,9 +159,13 @@
       <div class="filters-toolbar filters-toolbar--enhanced" style="margin-bottom: 10px">
         <div class="filters-toolbar__head">
           <strong>Filtros</strong>
-          <span class="muted-inline">Refine por tipo, responsavel e departamento.</span>
+          <span class="muted-inline">Tipo, responsavel e departamento.</span>
         </div>
         <div class="filters-grid filters-grid--4">
+          <label>
+            Busca rapida
+            <input v-model="filters.search" placeholder="Digite codigo, IP ou patrimonio" />
+          </label>
           <label>
             Filtrar por tipo
             <select v-model="filters.type">
@@ -278,104 +282,106 @@
       />
     </div>
 
-    <div class="panel" v-if="editingAsset || assetToRemove">
-      <div class="section-head">
-        <div>
-          <h3>{{ editingAsset ? "Editar ativo" : "Confirmar remocao de ativo" }}</h3>
-          <p v-if="editingAsset">Ajuste os dados principais do ativo sem popup nativo.</p>
-          <p v-else>Remocao fisica do ativo selecionado.</p>
+    <div class="modal-overlay" v-if="editingAsset || assetToRemove" @click.self="closeAssetActions">
+      <div class="modal-card">
+        <div class="section-head">
+          <div>
+            <h3>{{ editingAsset ? "Editar ativo" : "Confirmar remocao de ativo" }}</h3>
+            <p v-if="editingAsset">Ajuste os dados principais do ativo.</p>
+            <p v-else>Remocao fisica do ativo selecionado.</p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeAssetActions">Fechar</button>
         </div>
-        <button type="button" class="btn-soft" @click="closeAssetActions">Fechar</button>
-      </div>
 
-      <form v-if="editingAsset" class="form-grid" @submit.prevent="submitAssetEdit">
-        <label>
-          Empresa
-          <input v-model="editAssetForm.company" />
-        </label>
-        <label>
-          Empresa ERP
-          <input v-model="editAssetForm.companyErpCode" />
-        </label>
-        <label>
-          Tipo de ativo
-          <select v-model="editAssetForm.assetType">
-            <option v-for="type in assetTypes" :key="type" :value="type">{{ type }}</option>
-          </select>
-        </label>
-        <label>
-          Departamento / Setor
-          <input v-model="editAssetForm.department" />
-        </label>
-        <label>
-          Marca
-          <input v-model="editAssetForm.brand" />
-        </label>
-        <label>
-          Modelo
-          <input v-model="editAssetForm.model" />
-        </label>
-        <label>
-          Numero de serie
-          <input v-model="editAssetForm.serialNumber" />
-        </label>
-        <label>
-          Patrimonio
-          <input v-model="editAssetForm.patrimony" />
-        </label>
-        <label>
-          Status operacional
-          <input :value="editingAsset?.status || '-'" disabled />
-        </label>
-        <label>
-          Condicao do equipamento
-          <select v-model="editAssetForm.equipmentCondition">
-            <option v-for="condition in equipmentConditions" :key="condition" :value="condition">{{ condition }}</option>
-          </select>
-        </label>
-        <label>
-          Responsavel atual
-          <input :value="editingAsset?.responsibleUserName || 'Sem responsavel'" disabled />
-        </label>
-        <label>
-          Termo atual
-          <input :value="editingAsset?.linkedTermTitle || 'Sem termo'" disabled />
-        </label>
-        <label>
-          Modo IP
-          <select v-model="editAssetForm.ipMode">
-            <option value="DHCP">DHCP</option>
-            <option value="ESTATICO">ESTATICO</option>
-          </select>
-        </label>
-        <label>
-          IP
-          <input v-model="editAssetForm.ipAddress" />
-        </label>
-        <label>
-          IMEI
-          <input v-model="editAssetForm.imei" />
-        </label>
-        <label class="full">
-          Descricao detalhada
-          <textarea v-model="editAssetForm.detailedDescription" />
-        </label>
-        <label class="full">
-          Historico (uma linha por item)
-          <textarea v-model="editAssetForm.transferHistoryText" />
-        </label>
-        <div class="full actions-row">
-          <button class="btn-primary" type="submit">Salvar alteracoes</button>
-          <button type="button" @click="closeAssetActions">Cancelar</button>
-        </div>
-      </form>
+        <form v-if="editingAsset" class="form-grid" @submit.prevent="submitAssetEdit">
+          <label>
+            Empresa
+            <input v-model="editAssetForm.company" />
+          </label>
+          <label>
+            Empresa ERP
+            <input v-model="editAssetForm.companyErpCode" />
+          </label>
+          <label>
+            Tipo de ativo
+            <select v-model="editAssetForm.assetType">
+              <option v-for="type in assetTypes" :key="type" :value="type">{{ type }}</option>
+            </select>
+          </label>
+          <label>
+            Departamento / Setor
+            <input v-model="editAssetForm.department" />
+          </label>
+          <label>
+            Marca
+            <input v-model="editAssetForm.brand" />
+          </label>
+          <label>
+            Modelo
+            <input v-model="editAssetForm.model" />
+          </label>
+          <label>
+            Numero de serie
+            <input v-model="editAssetForm.serialNumber" />
+          </label>
+          <label>
+            Patrimonio
+            <input v-model="editAssetForm.patrimony" />
+          </label>
+          <label>
+            Status operacional
+            <input :value="editingAsset?.status || '-'" disabled />
+          </label>
+          <label>
+            Condicao do equipamento
+            <select v-model="editAssetForm.equipmentCondition">
+              <option v-for="condition in equipmentConditions" :key="condition" :value="condition">{{ condition }}</option>
+            </select>
+          </label>
+          <label>
+            Responsavel atual
+            <input :value="editingAsset?.responsibleUserName || 'Sem responsavel'" disabled />
+          </label>
+          <label>
+            Termo atual
+            <input :value="editingAsset?.linkedTermTitle || 'Sem termo'" disabled />
+          </label>
+          <label>
+            Modo IP
+            <select v-model="editAssetForm.ipMode">
+              <option value="DHCP">DHCP</option>
+              <option value="ESTATICO">ESTATICO</option>
+            </select>
+          </label>
+          <label>
+            IP
+            <input v-model="editAssetForm.ipAddress" />
+          </label>
+          <label>
+            IMEI
+            <input v-model="editAssetForm.imei" />
+          </label>
+          <label class="full">
+            Descricao detalhada
+            <textarea v-model="editAssetForm.detailedDescription" />
+          </label>
+          <label class="full">
+            Historico (uma linha por item)
+            <textarea v-model="editAssetForm.transferHistoryText" />
+          </label>
+          <div class="full actions-row">
+            <button class="btn-primary" type="submit">Salvar alteracoes</button>
+            <button type="button" @click="closeAssetActions">Cancelar</button>
+          </div>
+        </form>
 
-      <div v-else-if="assetToRemove" class="crud-box">
-        <p><strong>{{ assetToRemove.internalCode }}</strong> - {{ assetToRemove.assetType }}</p>
-        <p class="muted">{{ assetToRemove.company || "-" }} | {{ assetToRemove.department || "-" }}</p>
-        <div class="actions-row">
-          <button type="button" class="btn-soft" @click="closeAssetActions">Cancelar</button>
-          <button type="button" @click="confirmAssetRemoval">Remover</button>
+        <div v-else-if="assetToRemove" class="crud-box">
+          <p><strong>{{ assetToRemove.internalCode }}</strong> - {{ assetToRemove.assetType }}</p>
+          <p class="muted">{{ assetToRemove.company || "-" }} | {{ assetToRemove.department || "-" }}</p>
+          <div class="actions-row">
+            <button type="button" class="btn-soft" @click="closeAssetActions">Cancelar</button>
+            <button type="button" @click="confirmAssetRemoval">Remover</button>
+          </div>
         </div>
       </div>
     </div>
@@ -552,6 +558,7 @@ const form = reactive({
 });
 
 const filters = reactive({
+  search: "",
   type: "",
   responsible: "",
   department: "",
@@ -638,7 +645,7 @@ watch([page, pageSize], () => {
 });
 
 watch(
-  () => [filters.type, filters.responsible, filters.department, filters.showInactives],
+  () => [filters.search, filters.type, filters.responsible, filters.department, filters.showInactives],
   () => {
     if (page.value !== 1) {
       page.value = 1;
@@ -675,6 +682,7 @@ function removeExtraField(index) {
 }
 
 function clearFilters() {
+  filters.search = "";
   filters.type = "";
   filters.responsible = "";
   filters.department = "";
@@ -924,6 +932,7 @@ async function loadAssets() {
       page: String(page.value),
       pageSize: String(pageSize.value)
     });
+    if (filters.search.trim()) params.set("internalCode", filters.search.trim());
     if (filters.type) params.set("assetType", filters.type);
     if (filters.responsible.trim()) params.set("responsible", filters.responsible.trim());
     if (filters.department.trim()) params.set("department", filters.department.trim());

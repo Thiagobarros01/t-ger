@@ -246,6 +246,14 @@ export function useCrmData() {
     return response;
   }
 
+  async function getCustomerProfile(customerId, page = 1, pageSize = 6) {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize)
+    });
+    return apiRequest(`/api/crm/deals/customers/${customerId}/profile?${params.toString()}`);
+  }
+
   function customerNameById(id) {
     return state.customersById[id]?.corporateName ?? `#${id}`;
   }
@@ -270,6 +278,7 @@ export function useCrmData() {
     syncDealsFromSalesHistory,
     searchCustomers,
     hydrateCustomersByIds,
-    customerNameById
+    customerNameById,
+    getCustomerProfile
   };
 }

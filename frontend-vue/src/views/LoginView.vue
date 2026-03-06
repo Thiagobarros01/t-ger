@@ -1,34 +1,44 @@
 <template>
   <div class="login-page">
+    <header class="login-topbar">
+      <div class="login-topbar__brand">
+        <div class="brand-logo">TG</div>
+        <div>
+          <strong>T-GER</strong>
+          <p>Plataforma de gestao integrada</p>
+        </div>
+      </div>
+    </header>
+
     <div class="login-shell">
       <section class="login-hero">
-        <div class="login-hero__badge">T-GER</div>
-        <h1>Sistema de gestao por setores</h1>
+        <div class="login-hero__badge">Acesso Corporativo</div>
+        <h1>Gestao por departamentos, em um unico painel</h1>
         <p>
-          Modulos organizados por area, permissoes por perfil e submodulos por departamento.
+          Fluxo organizado por modulo com visual operacional e produtividade no dia a dia.
         </p>
 
         <div class="login-hero__highlights">
           <div>
-            <strong>Administrador</strong>
-            <span>visao completa do sistema</span>
+            <strong>Visao centralizada</strong>
+            <span>ti, comercial, crm e configuracoes em uma base unica</span>
           </div>
           <div>
-            <strong>Gestor</strong>
-            <span>acesso ao modulo vinculado</span>
+            <strong>Operacao por contexto</strong>
+            <span>navegacao por departamento e funcoes do modulo atual</span>
           </div>
           <div>
-            <strong>Operador</strong>
-            <span>dados e chamados do proprio fluxo</span>
+            <strong>Base pronta para evolucao</strong>
+            <span>mvp funcional com foco em uso real e iteracao rapida</span>
           </div>
         </div>
       </section>
 
       <section class="login-card">
         <div class="login-card__head">
-          <p class="eyebrow">Acesso</p>
+          <p class="eyebrow">Login</p>
           <h2>Entrar no T-GER</h2>
-          <p class="muted">Use uma credencial de teste para validar a navegacao.</p>
+          <p class="muted">Use suas credenciais para acessar.</p>
         </div>
 
         <form class="login-form" @submit.prevent="submit">
@@ -55,7 +65,7 @@
             <code>123456</code>
           </div>
           <div class="login-credential-row">
-            <span>Admin</span>
+            <span>Administrador</span>
             <code>thiago@tger.local</code>
           </div>
           <div class="login-credential-row">
@@ -69,9 +79,7 @@
         </div>
       </section>
     </div>
-    <div class="login-footer-note">
-      Ambiente de teste local com login simples (`auth/login`)
-    </div>
+    <div class="login-footer-note">Ambiente local de testes.</div>
   </div>
 </template>
 

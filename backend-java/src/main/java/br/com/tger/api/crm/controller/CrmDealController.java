@@ -21,6 +21,16 @@ public class CrmDealController {
         return service.listDeals(authorizationHeader);
     }
 
+    @GetMapping("/customers/{customerId}/profile")
+    public CrmCustomerProfileResponseDto customerProfile(
+            @PathVariable Long customerId,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "6") Integer pageSize,
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader
+    ) {
+        return service.getCustomerProfile(customerId, page, pageSize, authorizationHeader);
+    }
+
     @PostMapping("/sync-from-sales-history")
     public CrmHistorySyncResultDto syncFromSalesHistory(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader

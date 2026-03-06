@@ -1,12 +1,11 @@
 <template>
   <div>
-    <PageHeader eyebrow="Gestao do Comercial" title="Cadastro de Vendedor" subtitle="Vendedor com codigo ERP para vinculo posterior com clientes." />
+    <PageHeader eyebrow="Gestao do Comercial" title="Vendedores" subtitle="" />
 
     <div class="panel">
       <div class="section-head">
         <div>
           <h3>Novo vendedor</h3>
-          <p>O vinculo com clientes sera feito pelo Codigo ERP do vendedor.</p>
         </div>
       </div>
       <form class="form-grid" @submit.prevent="saveSeller">
@@ -15,7 +14,7 @@
           <input value="Gerado automaticamente ao salvar" disabled />
         </label>
         <label>
-          Codigo ERP (string)
+          Codigo ERP
           <input v-model="form.erpCode" required placeholder="Ex.: VEND-001" />
         </label>
         <label>
@@ -41,7 +40,6 @@
       <div class="section-head">
         <div>
           <h3>Vendedores</h3>
-          <p>Busca paginada com filtros por nome, ERP e e-mail.</p>
         </div>
         <span class="tag">{{ rows.length }} exibidos de {{ totalItems }} item(ns)</span>
       </div>
@@ -49,7 +47,6 @@
       <div class="filters-toolbar filters-toolbar--enhanced">
         <div class="filters-toolbar__head">
           <strong>Filtros</strong>
-          <span class="muted-inline">Busque por nome, ERP e e-mail.</span>
         </div>
         <div class="filters-grid">
           <label>
@@ -118,45 +115,47 @@
       />
     </div>
 
-    <div class="panel" v-if="editingSeller || sellerToRemove">
-      <div class="section-head">
-        <div>
-          <h3>{{ editingSeller ? "Editar vendedor" : "Confirmar remocao de vendedor" }}</h3>
-          <p v-if="editingSeller">Atualize os dados vinculados por ERP.</p>
-          <p v-else>Remocao fisica do vendedor selecionado.</p>
+    <div class="modal-overlay" v-if="editingSeller || sellerToRemove" @click.self="closeSellerActions">
+      <div class="modal-card modal-card--small">
+        <div class="section-head">
+          <div>
+            <h3>{{ editingSeller ? "Editar vendedor" : "Confirmar remocao de vendedor" }}</h3>
+            <p v-if="editingSeller">Atualize os dados do vendedor.</p>
+            <p v-else>Remocao fisica do vendedor selecionado.</p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeSellerActions">Fechar</button>
         </div>
-        <button type="button" class="btn-soft" @click="closeSellerActions">Fechar</button>
-      </div>
 
-      <form v-if="editingSeller" class="form-grid" @submit.prevent="submitSellerEdit">
-        <label>
-          Codigo ERP
-          <input v-model="editSellerForm.erpCode" required />
-        </label>
-        <label>
-          Nome
-          <input v-model="editSellerForm.name" required />
-        </label>
-        <label>
-          E-mail
-          <input v-model="editSellerForm.email" type="email" />
-        </label>
-        <label>
-          Telefone
-          <input v-model="editSellerForm.phone" />
-        </label>
-        <div class="full actions-row">
-          <button class="btn-primary" type="submit">Salvar alteracoes</button>
-          <button type="button" @click="closeSellerActions">Cancelar</button>
-        </div>
-      </form>
+        <form v-if="editingSeller" class="form-grid" @submit.prevent="submitSellerEdit">
+          <label>
+            Codigo ERP
+            <input v-model="editSellerForm.erpCode" required />
+          </label>
+          <label>
+            Nome
+            <input v-model="editSellerForm.name" required />
+          </label>
+          <label>
+            E-mail
+            <input v-model="editSellerForm.email" type="email" />
+          </label>
+          <label>
+            Telefone
+            <input v-model="editSellerForm.phone" />
+          </label>
+          <div class="full actions-row">
+            <button class="btn-primary" type="submit">Salvar alteracoes</button>
+            <button type="button" @click="closeSellerActions">Cancelar</button>
+          </div>
+        </form>
 
-      <div v-else-if="sellerToRemove" class="crud-box">
-        <p><strong>{{ sellerToRemove.name }}</strong></p>
-        <p class="muted">ERP: {{ sellerToRemove.erpCode }}</p>
-        <div class="actions-row">
-          <button type="button" class="btn-soft" @click="closeSellerActions">Cancelar</button>
-          <button type="button" @click="confirmSellerRemoval">Remover</button>
+        <div v-else-if="sellerToRemove" class="crud-box">
+          <p><strong>{{ sellerToRemove.name }}</strong></p>
+          <p class="muted">ERP: {{ sellerToRemove.erpCode }}</p>
+          <div class="actions-row">
+            <button type="button" class="btn-soft" @click="closeSellerActions">Cancelar</button>
+            <button type="button" @click="confirmSellerRemoval">Remover</button>
+          </div>
         </div>
       </div>
     </div>

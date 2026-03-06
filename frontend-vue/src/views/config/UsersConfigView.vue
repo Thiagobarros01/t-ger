@@ -3,7 +3,7 @@
     <PageHeader
       eyebrow="Configuracoes"
       title="Usuarios e Permissoes"
-      subtitle="Administrador ve tudo. Gestor ve modulo vinculado. Operador ve apenas seus dados."
+      subtitle=""
     />
 
     <div class="panel">
@@ -18,8 +18,8 @@
           <input v-model="form.email" type="email" required />
         </label>
         <label>
-          Codigo ERP (string)
-          <input v-model="form.erpCode" placeholder="Pode conter letras/numeros" />
+          Codigo ERP
+          <input v-model="form.erpCode" />
         </label>
         <label>
           Perfil
@@ -89,15 +89,66 @@
         </div>
       </div>
 
-      <div class="panel" style="padding: 10px; margin-bottom: 10px" v-if="selectedUser">
+      <div v-if="loading" class="empty-state">Carregando usuarios...</div>
+      <div v-else-if="loadError" class="empty-state">{{ loadError }}</div>
+      <div v-else class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Codigo ERP</th>
+              <th>Vendedor ERP</th>
+              <th>Perfil</th>
+              <th>Status</th>
+              <th>Modulos</th>
+              <th>Acoes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="user in rows" :key="user.id">
+              <td>{{ user.name }}</td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.erpCode || "-" }}</td>
+              <td>{{ user.linkedSellerErpCode || "-" }}</td>
+              <td><span class="tag">{{ user.profile }}</span></td>
+              <td>
+                <span class="tag" :class="{ 'danger-tag': !user.active }">{{ user.active ? "Ativo" : "Inativo" }}</span>
+              </td>
+              <td>
+                <span v-if="user.profile === 'ADMINISTRADOR'" class="tag">Todos</span>
+                <span v-else>{{ formatModules(user.modules) }}</span>
+              </td>
+              <td>
+                <button type="button" @click="selectUser(user)">Gerenciar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <PaginationBar
+        :page="page"
+        :page-size="pageSize"
+        :total-pages="Math.max(totalPages, 1)"
+        :total-items="totalItems"
+        @update:page="setPage"
+        @update:pageSize="setPageSize"
+      />
+    </div>
+
+    <div class="modal-overlay" v-if="selectedUser" @click.self="selectedUserId = null">
+      <div class="modal-card modal-card--small">
         <div class="section-head" style="margin-bottom: 8px">
           <div>
             <h3 style="font-size: 1rem">Acoes do usuario</h3>
             <p>{{ selectedUser.name }} ({{ selectedUser.profile }})</p>
           </div>
-          <span class="tag" :class="{ 'danger-tag': !selectedUser.active }">
-            {{ selectedUser.active ? "Ativo" : "Inativo" }}
-          </span>
+          <div class="actions-row">
+            <span class="tag" :class="{ 'danger-tag': !selectedUser.active }">
+              {{ selectedUser.active ? "Ativo" : "Inativo" }}
+            </span>
+            <button type="button" class="btn-soft" @click="selectedUserId = null">Fechar</button>
+          </div>
         </div>
         <div class="form-grid">
           <label>
@@ -144,54 +195,6 @@
         </div>
         <p class="muted" v-if="actionMessage" style="margin-top: 8px">{{ actionMessage }}</p>
       </div>
-
-      <div v-if="loading" class="empty-state">Carregando usuarios...</div>
-      <div v-else-if="loadError" class="empty-state">{{ loadError }}</div>
-      <div v-else class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>E-mail</th>
-              <th>Codigo ERP</th>
-              <th>Vendedor ERP</th>
-              <th>Perfil</th>
-              <th>Status</th>
-              <th>Modulos</th>
-              <th>Regra efetiva</th>
-              <th>Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="user in rows" :key="user.id">
-              <td>{{ user.name }}</td>
-              <td>{{ user.email }}</td>
-              <td>{{ user.erpCode || "-" }}</td>
-              <td>{{ user.linkedSellerErpCode || "-" }}</td>
-              <td><span class="tag">{{ user.profile }}</span></td>
-              <td>
-                <span class="tag" :class="{ 'danger-tag': !user.active }">{{ user.active ? "Ativo" : "Inativo" }}</span>
-              </td>
-              <td>
-                <span v-if="user.profile === 'ADMINISTRADOR'" class="tag">Todos</span>
-                <span v-else>{{ formatModules(user.modules) }}</span>
-              </td>
-              <td>{{ effectiveRule(user.profile) }}</td>
-              <td>
-                <button type="button" @click="selectUser(user)">Gerenciar</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <PaginationBar
-        :page="page"
-        :page-size="pageSize"
-        :total-pages="Math.max(totalPages, 1)"
-        :total-items="totalItems"
-        @update:page="setPage"
-        @update:pageSize="setPageSize"
-      />
     </div>
   </div>
 </template>
@@ -345,12 +348,6 @@ async function reactivateSelected() {
   await reactivateUser(selectedUser.value.id);
   actionMessage.value = "Usuario reativado.";
   await loadUsers();
-}
-
-function effectiveRule(profile) {
-  if (profile === "ADMINISTRADOR") return "Ve todos os modulos e dados";
-  if (profile === "GESTOR") return "Ve apenas o(s) modulo(s) vinculado(s)";
-  return "Ve apenas os proprios dados (regra por tela/API)";
 }
 
 function formatModules(moduleCodes) {

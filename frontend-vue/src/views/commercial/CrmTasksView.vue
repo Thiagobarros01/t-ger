@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader eyebrow="CRM Comercial" title="Tarefas" subtitle="Visao operacional de pendencias por responsavel, prioridade e prazo.">
+    <PageHeader eyebrow="CRM Comercial" title="Tarefas" subtitle="">
       <template #actions>
         <button class="btn-primary" type="button" @click="openCreateModal">Criar tarefa</button>
       </template>
@@ -29,7 +29,6 @@
       <div class="filters-toolbar filters-toolbar--enhanced">
         <div class="filters-toolbar__head">
           <strong>Filtros</strong>
-          <span class="muted-inline">Refine por titulo, responsavel, status e prioridade.</span>
         </div>
         <div class="filters-grid filters-grid--4">
           <label>

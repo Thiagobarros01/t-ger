@@ -3,15 +3,14 @@
     <PageHeader
       eyebrow="Configuracoes"
       title="Parametros Globais"
-      subtitle="Dados de apoio reutilizaveis entre modulos (ex.: empresas, categorias, departamentos)."
+      subtitle=""
     />
 
     <div class="config-layout">
       <div class="panel">
         <div class="section-head">
           <div>
-            <h3>Empresas (CRUD)</h3>
-            <p>Parametro global usado em Ativos e outros modulos.</p>
+            <h3>Empresas</h3>
           </div>
           <span class="tag">{{ rows.length }} exibidas de {{ totalItems }}</span>
         </div>
@@ -70,11 +69,56 @@
         />
       </div>
 
-      <div class="panel" v-if="editingCompany || companyToRemove">
+      <div class="panel">
+        <div class="section-head">
+          <div>
+            <h3>Parametros globais de CRM</h3>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label v-for="param in globalParams" :key="param.key">
+            {{ param.label }}
+            <input v-model="param.value" />
+            <small class="muted">{{ param.description }}</small>
+          </label>
+          <div class="full actions-row">
+            <button type="button" class="btn-primary" @click="saveGlobalParams">Salvar parametros CRM</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-head">
+          <div>
+            <h3>Padroes</h3>
+          </div>
+        </div>
+        <div class="parameter-grid">
+          <div class="parameter-card">
+            <span>Departamentos</span>
+            <strong>Proximo passo</strong>
+            <small>TI, Comercial, Financeiro...</small>
+          </div>
+          <div class="parameter-card">
+            <span>Categorias / Linhas</span>
+            <strong>Proximo passo</strong>
+            <small>Cadastro comercial e importacoes</small>
+          </div>
+          <div class="parameter-card">
+            <span>Fabricantes</span>
+            <strong>Proximo passo</strong>
+            <small>Produtos e ativos de TI</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" v-if="editingCompany || companyToRemove" @click.self="closeCompanyActions">
+      <div class="modal-card modal-card--small">
         <div class="section-head">
           <div>
             <h3>{{ editingCompany ? "Editar empresa" : "Confirmar remocao" }}</h3>
-            <p v-if="editingCompany">Ajuste sem sair da tela.</p>
+            <p v-if="editingCompany">Atualize os dados da empresa.</p>
             <p v-else>Remocao imediata da empresa selecionada.</p>
           </div>
           <button type="button" class="btn-soft" @click="closeCompanyActions">Fechar</button>
@@ -98,51 +142,6 @@
           <div class="actions-row">
             <button type="button" class="btn-soft" @click="closeCompanyActions">Cancelar</button>
             <button type="button" @click="confirmCompanyRemoval">Remover</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="section-head">
-          <div>
-            <h3>Parametros globais de CRM</h3>
-            <p>Recompra e resgate usados automaticamente nas oportunidades.</p>
-          </div>
-        </div>
-        <div class="form-grid">
-          <label v-for="param in globalParams" :key="param.key">
-            {{ param.label }}
-            <input v-model="param.value" />
-            <small class="muted">{{ param.description }}</small>
-          </label>
-          <div class="full actions-row">
-            <button type="button" class="btn-primary" @click="saveGlobalParams">Salvar parametros CRM</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="section-head">
-          <div>
-            <h3>Padrao de parametros globais</h3>
-            <p>Centralizar dados comuns aqui evita retrabalho e divergencia entre modulos.</p>
-          </div>
-        </div>
-        <div class="parameter-grid">
-          <div class="parameter-card">
-            <span>Departamentos</span>
-            <strong>Proximo passo</strong>
-            <small>TI, Comercial, Financeiro...</small>
-          </div>
-          <div class="parameter-card">
-            <span>Categorias / Linhas</span>
-            <strong>Proximo passo</strong>
-            <small>Cadastro comercial e importacoes</small>
-          </div>
-          <div class="parameter-card">
-            <span>Fabricantes</span>
-            <strong>Proximo passo</strong>
-            <small>Produtos e ativos de TI</small>
           </div>
         </div>
       </div>

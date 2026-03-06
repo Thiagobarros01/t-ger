@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader eyebrow="Gestao da TI" title="Termos e Contratos" subtitle="Cadastro e consulta de termos." />
+    <PageHeader eyebrow="Gestao da TI" title="Termos e Contratos" subtitle="" />
 
     <div class="stats-row">
       <div class="stat-card">
@@ -81,7 +81,7 @@
           </select>
         </label>
         <label>
-          Caminho do documento (string)
+          Caminho do documento
           <input v-model="form.documentPath" placeholder="C:/documentos/ti/comodato/arquivo.pdf" />
         </label>
         <div class="full actions-row">
@@ -99,7 +99,7 @@
       <div class="filters-toolbar filters-toolbar--enhanced">
         <div class="filters-toolbar__head">
           <strong>Filtros</strong>
-          <span class="muted-inline">Refine por tipo, vinculado, item, status e documento.</span>
+          <span class="muted-inline">Tipo, vinculado, item, status e documento.</span>
         </div>
         <div class="filters-grid filters-grid--4">
           <label>
@@ -198,65 +198,67 @@
       />
     </div>
 
-    <div class="panel" v-if="editingTerm || termToRemove">
-      <div class="section-head">
-        <div>
-          <h3>{{ editingTerm ? "Editar termo" : "Confirmar remocao de termo" }}</h3>
-          <p v-if="editingTerm">Edite sem sair da listagem.</p>
-          <p v-else>Remocao fisica do termo selecionado.</p>
+    <div class="modal-overlay" v-if="editingTerm || termToRemove" @click.self="closeTermActions">
+      <div class="modal-card modal-card--small">
+        <div class="section-head">
+          <div>
+            <h3>{{ editingTerm ? "Editar termo" : "Confirmar remocao de termo" }}</h3>
+            <p v-if="editingTerm">Atualize os dados do termo.</p>
+            <p v-else>Remocao fisica do termo selecionado.</p>
+          </div>
+          <button type="button" class="btn-soft" @click="closeTermActions">Fechar</button>
         </div>
-        <button type="button" class="btn-soft" @click="closeTermActions">Fechar</button>
-      </div>
 
-      <form v-if="editingTerm" class="form-grid" @submit.prevent="submitTermEdit">
-        <label>
-          Tipo
-          <select v-model="editTermForm.type">
-            <option value="CLT">CLT</option>
-            <option value="COMODATO">Comodato</option>
-          </select>
-        </label>
-        <label>
-          Vinculado a
-          <input v-model="editTermForm.linkedUserName" />
-        </label>
-        <label>
-          Item vinculado
-          <select v-model.number="editTermForm.linkedAssetId">
-            <option :value="null">Sem item</option>
-            <option v-for="asset in availableAssetsForEdit" :key="asset.id" :value="asset.id">{{ buildAssetLabel(asset) }}</option>
-          </select>
-        </label>
-        <label>
-          Data de inicio
-          <input v-model="editTermForm.startDate" type="date" />
-        </label>
-        <label>
-          Status
-          <select v-model="editTermForm.status">
-            <option value="Ativo">Ativo</option>
-            <option value="Devolvido">Devolvido</option>
-            <option value="Concluido">Concluido</option>
-            <option value="Inativo">Inativo</option>
-            <option value="Revogado">Revogado</option>
-          </select>
-        </label>
-        <label class="full">
-          Caminho do documento
-          <input v-model="editTermForm.documentPath" />
-        </label>
-        <div class="full actions-row">
-          <button class="btn-primary" type="submit">Salvar alteracoes</button>
-          <button type="button" @click="closeTermActions">Cancelar</button>
-        </div>
-      </form>
+        <form v-if="editingTerm" class="form-grid" @submit.prevent="submitTermEdit">
+          <label>
+            Tipo
+            <select v-model="editTermForm.type">
+              <option value="CLT">CLT</option>
+              <option value="COMODATO">Comodato</option>
+            </select>
+          </label>
+          <label>
+            Vinculado a
+            <input v-model="editTermForm.linkedUserName" />
+          </label>
+          <label>
+            Item vinculado
+            <select v-model.number="editTermForm.linkedAssetId">
+              <option :value="null">Sem item</option>
+              <option v-for="asset in availableAssetsForEdit" :key="asset.id" :value="asset.id">{{ buildAssetLabel(asset) }}</option>
+            </select>
+          </label>
+          <label>
+            Data de inicio
+            <input v-model="editTermForm.startDate" type="date" />
+          </label>
+          <label>
+            Status
+            <select v-model="editTermForm.status">
+              <option value="Ativo">Ativo</option>
+              <option value="Devolvido">Devolvido</option>
+              <option value="Concluido">Concluido</option>
+              <option value="Inativo">Inativo</option>
+              <option value="Revogado">Revogado</option>
+            </select>
+          </label>
+          <label class="full">
+            Caminho do documento
+            <input v-model="editTermForm.documentPath" />
+          </label>
+          <div class="full actions-row">
+            <button class="btn-primary" type="submit">Salvar alteracoes</button>
+            <button type="button" @click="closeTermActions">Cancelar</button>
+          </div>
+        </form>
 
-      <div v-else-if="termToRemove" class="crud-box">
-        <p><strong>{{ termToRemove.defaultTermName }}</strong></p>
-        <p class="muted">{{ termToRemove.type }} | {{ termToRemove.linkedUserName }}</p>
-        <div class="actions-row">
-          <button type="button" class="btn-soft" @click="closeTermActions">Cancelar</button>
-          <button type="button" @click="confirmTermRemoval">Remover</button>
+        <div v-else-if="termToRemove" class="crud-box">
+          <p><strong>{{ termToRemove.defaultTermName }}</strong></p>
+          <p class="muted">{{ termToRemove.type }} | {{ termToRemove.linkedUserName }}</p>
+          <div class="actions-row">
+            <button type="button" class="btn-soft" @click="closeTermActions">Cancelar</button>
+            <button type="button" @click="confirmTermRemoval">Remover</button>
+          </div>
         </div>
       </div>
     </div>

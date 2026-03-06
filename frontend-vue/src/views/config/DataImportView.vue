@@ -197,12 +197,12 @@ const title = computed(() => {
 });
 const subtitle = computed(() =>
   isClient.value
-    ? "Recebe planilha com os campos do cadastro de cliente informados no modulo Comercial."
+    ? "Importacao de clientes."
     : isProduct.value
-      ? "Recebe planilha com os campos do cadastro de produto informados no modulo Comercial."
+      ? "Importacao de produtos."
       : isSeller.value
-        ? "Recebe planilha do cadastro de vendedores e atualiza por Codigo ERP."
-        : "Recebe planilha de historico comercial (pedido/NF) para alimentar o CRM."
+        ? "Importacao de vendedores."
+        : "Importacao de historico de vendas."
 );
 
 const fields = computed(() => getFields(props.entity));
